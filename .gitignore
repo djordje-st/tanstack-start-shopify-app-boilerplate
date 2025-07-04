@@ -19,6 +19,7 @@ yarn.lock
 /blob-report/
 /playwright/.cache/
 .tanstack
+src/types/generated
 
 # Logs
 logs/

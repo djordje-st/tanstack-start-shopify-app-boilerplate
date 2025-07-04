@@ -27,7 +27,6 @@ A modern Shopify app boilerplate built with TanStack Start, and TypeScript.
 - **Admin API Client** - GraphQL API interactions
 - **App Proxy Authentication** - Secure frontend-backend communication
 - **Webhook Handling** - App lifecycle events
-- **Theme Extensions** - Custom storefront blocks
 
 ## 🚀 Features
 
@@ -43,28 +42,12 @@ A modern Shopify app boilerplate built with TanStack Start, and TypeScript.
 - ✅ **Theme Extensions** - Example star rating block
 - ✅ **Comprehensive Logging** - File-based and console logging
 
-### Example Implementations
-
-- 📦 **Products Display** - Fetches and displays shop products
-- 🔄 **Shop Sync Job** - Scheduled shop data synchronization
-- ⭐ **Star Rating Block** - Theme extension with Liquid templating
-- 🛡️ **HMAC Verification** - Secure app proxy request validation
-
-## 📋 Prerequisites
-
-- **Node.js** >= 18.0.0 (see `.nvmrc`)
-- **pnpm** >= 8.0.0
-- **PostgreSQL** >= 14
-- **Redis** >= 6.0
-- **Shopify CLI** >= 3.0
-- **Shopify Partner Account** with app credentials
-
 ## 🛠️ Installation
 
 ### 1. Clone and Install Dependencies
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/djordje-st/start-shopify-app-boilerplate.git
 cd shopify-app-boilerplate
 pnpm install
 ```
@@ -100,12 +83,18 @@ LOG_TO_FILE=true
 ```bash
 # Push schema to database
 pnpm db:push
+or
+pnpm db:generate && pnpm db:migrate
 
 # Optional: Open Drizzle Studio for database management
 pnpm db:studio
 ```
 
-### 4. Development Server
+### 4. Link your Shopify app to the project
+
+Run `shopify app config link` and create a new Shopify app or link an existing one to the project
+
+### 5. Development Server
 
 ```bash
 # Start the development server with Shopify CLI
@@ -114,137 +103,6 @@ pnpm dev
 # Alternative: Start only the app (without Shopify CLI)
 pnpm app:dev
 ```
-
-## 📁 Project Structure
-
-```
-src/
-├── components/          # Reusable React components
-├── db/                 # Database schema and configuration
-│   ├── schema.ts       # Drizzle table definitions
-│   └── index.ts        # Database connection
-├── graphql/            # GraphQL queries and types
-│   └── queries.ts      # Shopify Admin API queries
-├── jobs/               # Background job definitions
-│   └── sync-shop.ts    # Shop data synchronization job
-├── routes/             # TanStack Router routes
-│   ├── api/           # Backend API endpoints
-│   │   ├── products.ts # Products API with proxy auth
-│   │   └── webhooks/   # Webhook handlers
-│   ├── __root.tsx     # Root layout and App Bridge setup
-│   ├── index.tsx      # Home page with products table
-│   └── about.tsx      # About page
-├── types/              # TypeScript type definitions
-└── utils/              # Utility functions
-    ├── middleware/     # Custom middleware
-    │   └── auth-middleware.ts  # Authentication middleware
-    ├── logger.ts       # Winston logging configuration
-    ├── redis.ts        # Redis connection
-    ├── shopify-*.ts    # Shopify-specific utilities
-    └── ...
-
-extensions/
-└── test-block/         # Theme extension example
-    ├── blocks/         # Liquid block templates
-    ├── assets/         # CSS/JS assets
-    ├── locales/        # Translations
-    └── shopify.extension.toml
-```
-
-## 🔧 Available Scripts
-
-```bash
-# Development
-pnpm dev                # Start Shopify CLI development server
-pnpm app:dev           # Start app only (port 3000)
-pnpm app:build         # Build production app
-pnpm app:start         # Start production server
-
-# Database
-pnpm db:push           # Push schema changes
-pnpm db:studio         # Open Drizzle Studio
-pnpm db:generate       # Generate migrations
-pnpm db:migrate        # Run migrations
-
-# GraphQL
-pnpm graphql:generate  # Generate GraphQL types
-```
-
-## 🔐 Authentication Flow
-
-### 1. App Installation
-
-- User installs app via Shopify admin
-- OAuth flow exchanges authorization code for access token
-- Session stored in PostgreSQL with shop information
-
-### 2. App Bridge Authentication
-
-- Frontend receives session token via URL parameters
-- Token validated and exchanged for offline access token
-- Authenticated GraphQL client created for API calls
-
-### 3. App Proxy Requests
-
-- Frontend API calls include HMAC signature
-- Backend verifies request authenticity
-- Shop context retrieved from database
-
-## 📊 Database Schema
-
-### Sessions Table
-
-```sql
-session (
-  id: text PRIMARY KEY,           -- Session identifier
-  shop: text NOT NULL UNIQUE,     -- Shop domain
-  state: text NOT NULL,           -- OAuth state
-  isOnline: boolean DEFAULT false, -- Online/offline session
-  scope: text,                    -- Granted permissions
-  expires: timestamp,             -- Session expiration
-  accessToken: text               -- Shopify access token
-)
-```
-
-### Shops Table
-
-```sql
-shop (
-  id: uuid PRIMARY KEY,           -- Internal shop ID
-  domain: text NOT NULL UNIQUE,   -- Shop domain (.myshopify.com)
-  name: text,                     -- Shop name
-  email: text,                    -- Shop contact email
-  contactEmail: text,             -- Alternative contact
-  currencyCode: text,             -- Shop currency
-  weightUnit: text,               -- Weight measurement unit
-  timezone: text,                 -- IANA timezone
-  url: text,                      -- Shop URL
-  createdAt: timestamp DEFAULT now(),
-  updatedAt: timestamp DEFAULT now()
-)
-```
-
-## 🎯 Key Features Deep Dive
-
-### Background Jobs
-
-- **Sync Shop Job**: Periodically updates shop information from Shopify API
-- **BullMQ Integration**: Reliable job processing with Redis
-- **Configurable Scheduling**: Cron-based job scheduling
-- **Error Handling**: Comprehensive job failure management
-
-### Theme Extensions
-
-- **Star Rating Block**: Example Liquid block for product ratings
-- **Configurable Settings**: Color picker and product selector
-- **Asset Management**: JavaScript and image assets
-- **Internationalization**: Translation-ready structure
-
-### API Endpoints
-
-- **`/api/products`**: Secured endpoint returning shop products
-- **`/api/webhooks/app/uninstalled`**: Handles app uninstallation
-- **Proxy Authentication**: HMAC-verified requests for security
 
 ## 🐛 Troubleshooting
 
@@ -281,6 +139,7 @@ shop (
 - [TanStack Start Documentation](https://tanstack.com/start)
 - [Drizzle ORM Documentation](https://orm.drizzle.team)
 - [Shopify CLI Documentation](https://shopify.dev/docs/apps/tools/cli)
+- [Polaris Web Components](https://shopify.dev/docs/api/app-home/using-polaris-components)
 
 ## 🤝 Contributing
 
@@ -290,10 +149,6 @@ This is a learning project. Feel free to:
 - Suggest improvements
 - Submit pull requests
 - Share your experiences
-
-## 📄 License
-
-[MIT License](LICENSE) - Feel free to use this boilerplate for learning and development purposes.
 
 ---
 
