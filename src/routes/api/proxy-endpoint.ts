@@ -4,7 +4,7 @@ import { SHOP_QUERY } from '~/graphql/queries'
 import { logError } from '~/utils/logger'
 import { authenticateProxy } from '~/utils/shopify-proxy'
 
-export const ServerRoute = createServerFileRoute('/api/products').methods({
+export const ServerRoute = createServerFileRoute('/api/proxy-endpoint').methods({
   GET: async ({ request }) => {
     try {
       // Verify proxy request and get shop + GraphQL client

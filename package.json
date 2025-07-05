@@ -24,9 +24,9 @@
     "@shopify/admin-api-client": "^1.1.0",
     "@shopify/app-bridge-react": "^4.2.0",
     "@shopify/shopify-api": "^11.13.0",
-    "@tanstack/react-router": "^1.124.0",
-    "@tanstack/react-router-devtools": "^1.124.0",
-    "@tanstack/react-start": "^1.124.1",
+    "@tanstack/react-router": "^1.125.1",
+    "@tanstack/react-router-devtools": "^1.125.1",
+    "@tanstack/react-start": "^1.125.1",
     "bullmq": "^5.56.1",
     "drizzle-orm": "^0.44.2",
     "graphql-config": "^5.1.5",
@@ -37,7 +37,7 @@
     "vite": "^6.3.5",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^4.7.1",
-    "zod": "^3.25.72"
+    "zod": "^3.25.74"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^5.0.7",

@@ -13,7 +13,7 @@ import { createServerRootRoute } from '@tanstack/react-start/server'
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
-import { ServerRoute as ApiProductsServerRouteImport } from './routes/api/products'
+import { ServerRoute as ApiProxyEndpointServerRouteImport } from './routes/api/proxy-endpoint'
 import { ServerRoute as ApiWebhooksAppUninstalledServerRouteImport } from './routes/api/webhooks/app/uninstalled'
 
 const rootServerRouteImport = createServerRootRoute()
@@ -28,9 +28,9 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiProductsServerRoute = ApiProductsServerRouteImport.update({
-  id: '/api/products',
-  path: '/api/products',
+const ApiProxyEndpointServerRoute = ApiProxyEndpointServerRouteImport.update({
+  id: '/api/proxy-endpoint',
+  path: '/api/proxy-endpoint',
   getParentRoute: () => rootServerRouteImport,
 } as any)
 const ApiWebhooksAppUninstalledServerRoute =
@@ -66,28 +66,28 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
 }
 export interface FileServerRoutesByFullPath {
-  '/api/products': typeof ApiProductsServerRoute
+  '/api/proxy-endpoint': typeof ApiProxyEndpointServerRoute
   '/api/webhooks/app/uninstalled': typeof ApiWebhooksAppUninstalledServerRoute
 }
 export interface FileServerRoutesByTo {
-  '/api/products': typeof ApiProductsServerRoute
+  '/api/proxy-endpoint': typeof ApiProxyEndpointServerRoute
   '/api/webhooks/app/uninstalled': typeof ApiWebhooksAppUninstalledServerRoute
 }
 export interface FileServerRoutesById {
   __root__: typeof rootServerRouteImport
-  '/api/products': typeof ApiProductsServerRoute
+  '/api/proxy-endpoint': typeof ApiProxyEndpointServerRoute
   '/api/webhooks/app/uninstalled': typeof ApiWebhooksAppUninstalledServerRoute
 }
 export interface FileServerRouteTypes {
   fileServerRoutesByFullPath: FileServerRoutesByFullPath
-  fullPaths: '/api/products' | '/api/webhooks/app/uninstalled'
+  fullPaths: '/api/proxy-endpoint' | '/api/webhooks/app/uninstalled'
   fileServerRoutesByTo: FileServerRoutesByTo
-  to: '/api/products' | '/api/webhooks/app/uninstalled'
-  id: '__root__' | '/api/products' | '/api/webhooks/app/uninstalled'
+  to: '/api/proxy-endpoint' | '/api/webhooks/app/uninstalled'
+  id: '__root__' | '/api/proxy-endpoint' | '/api/webhooks/app/uninstalled'
   fileServerRoutesById: FileServerRoutesById
 }
 export interface RootServerRouteChildren {
-  ApiProductsServerRoute: typeof ApiProductsServerRoute
+  ApiProxyEndpointServerRoute: typeof ApiProxyEndpointServerRoute
   ApiWebhooksAppUninstalledServerRoute: typeof ApiWebhooksAppUninstalledServerRoute
 }
 
@@ -111,11 +111,11 @@ declare module '@tanstack/react-router' {
 }
 declare module '@tanstack/react-start/server' {
   interface ServerFileRoutesByPath {
-    '/api/products': {
-      id: '/api/products'
-      path: '/api/products'
-      fullPath: '/api/products'
-      preLoaderRoute: typeof ApiProductsServerRouteImport
+    '/api/proxy-endpoint': {
+      id: '/api/proxy-endpoint'
+      path: '/api/proxy-endpoint'
+      fullPath: '/api/proxy-endpoint'
+      preLoaderRoute: typeof ApiProxyEndpointServerRouteImport
       parentRoute: typeof rootServerRouteImport
     }
     '/api/webhooks/app/uninstalled': {
@@ -136,7 +136,7 @@ export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
 const rootServerRouteChildren: RootServerRouteChildren = {
-  ApiProductsServerRoute: ApiProductsServerRoute,
+  ApiProxyEndpointServerRoute: ApiProxyEndpointServerRoute,
   ApiWebhooksAppUninstalledServerRoute: ApiWebhooksAppUninstalledServerRoute,
 }
 export const serverRouteTree = rootServerRouteImport
