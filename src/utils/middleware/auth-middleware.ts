@@ -96,11 +96,16 @@ async function upsertSessionAndShop(sessionData: Session): Promise<{
         },
       })
 
-    // Upsert shop - let the database handle conflicts gracefully
+    // Upsert shop - create only if domain doesn't exist
     await tx
       .insert(shops)
       .values({ domain: sessionData.shop })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: shops.domain,
+        set: {
+          updatedAt: new Date(),
+        },
+      })
 
     // Get both records
     const [session, shop] = await Promise.all([
