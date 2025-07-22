@@ -21,13 +21,13 @@
     ]
   },
   "dependencies": {
-    "@shopify/admin-api-client": "^1.1.0",
+    "@shopify/admin-api-client": "^1.1.1",
     "@shopify/app-bridge-react": "^4.2.0",
-    "@shopify/shopify-api": "^11.13.0",
-    "@tanstack/react-router": "^1.128.4",
-    "@tanstack/react-router-devtools": "^1.128.4",
-    "@tanstack/react-start": "^1.128.5",
-    "bullmq": "^5.56.4",
+    "@shopify/shopify-api": "^11.14.1",
+    "@tanstack/react-router": "^1.129.2",
+    "@tanstack/react-router-devtools": "^1.129.2",
+    "@tanstack/react-start": "^1.129.2",
+    "bullmq": "^5.56.5",
     "drizzle-orm": "^0.44.3",
     "graphql-config": "^5.1.5",
     "ioredis": "^5.6.1",
@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^5.0.7",
-    "@shopify/api-codegen-preset": "^1.1.8",
+    "@shopify/api-codegen-preset": "^1.1.9",
     "@shopify/app-bridge-types": "^0.1.0",
     "@shopify/app-bridge-ui-types": "^0.2.1",
     "@types/node": "^22.5.4",
