@@ -10,13 +10,13 @@ import {
 export const sessions = pgTable(
   'session',
   {
-    id: text('id').primaryKey(),
-    shop: text('shop').notNull().unique(),
-    state: text('state').notNull(),
-    isOnline: boolean('isOnline').default(false).notNull(),
-    scope: text('scope'),
-    expires: timestamp('expires', { mode: 'date' }),
-    accessToken: text('accessToken'),
+    id: text().primaryKey(),
+    shop: text().notNull().unique(),
+    state: text().notNull(),
+    isOnline: boolean().default(false).notNull(),
+    scope: text(),
+    expires: timestamp({ mode: 'date' }),
+    accessToken: text(),
   },
   table => [
     index('session_id_idx').on(table.id),
@@ -27,19 +27,18 @@ export const sessions = pgTable(
 export const shops = pgTable(
   'shop',
   {
-    id: uuid('id').primaryKey().defaultRandom(),
-    domain: text('domain').notNull().unique(),
+    id: uuid().primaryKey().defaultRandom(),
+    domain: text().notNull().unique(),
+    name: text(),
+    email: text(),
+    contactEmail: text(),
+    currencyCode: text(),
+    weightUnit: text(),
+    timezone: text(),
+    url: text(),
 
-    name: text('name'),
-    email: text('email'),
-    contactEmail: text('contactEmail'),
-    currencyCode: text('currencyCode'),
-    weightUnit: text('weightUnit'),
-    timezone: text('timezone'),
-    url: text('url'),
-
-    createdAt: timestamp('createdAt', { mode: 'date' }).defaultNow(),
-    updatedAt: timestamp('updatedAt', { mode: 'date' }).defaultNow(),
+    createdAt: timestamp({ mode: 'string' }).defaultNow(),
+    updatedAt: timestamp({ mode: 'string' }).defaultNow(),
   },
   table => [
     index('shop_id_idx').on(table.id),

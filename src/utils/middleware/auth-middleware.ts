@@ -1,7 +1,11 @@
-import { AdminApiClient } from '@shopify/admin-api-client'
-import { RequestedTokenType, Session } from '@shopify/shopify-api'
+import { type AdminApiClient } from '@shopify/admin-api-client'
+import { RequestedTokenType, type Session } from '@shopify/shopify-api'
 import { createMiddleware } from '@tanstack/react-start'
-import { getHeaders, getWebRequest } from '@tanstack/react-start/server'
+import {
+  getHeaders,
+  getWebRequest,
+  type HTTPHeaderName,
+} from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
 import { db } from '~/db'
 import {
@@ -25,11 +29,11 @@ type AuthContext = {
  * Extracts session token from multiple sources in order of priority
  */
 function extractSessionToken(
-  headers: Headers,
+  headers: Partial<Record<HTTPHeaderName, string | undefined>>,
   searchParams: URLSearchParams
 ): string | null {
   // 1. Authorization header (API calls) - normalized to be capitalized
-  const authHeader = headers.get('Authorization')
+  const authHeader = headers.Authorization || headers.authorization
 
   if (authHeader?.startsWith('Bearer ')) {
     return authHeader.replace('Bearer ', '')
@@ -99,11 +103,13 @@ async function upsertSessionAndShop(sessionData: Session): Promise<{
     // Upsert shop - create only if domain doesn't exist
     await tx
       .insert(shops)
-      .values({ domain: sessionData.shop })
+      .values({
+        domain: sessionData.shop,
+      })
       .onConflictDoUpdate({
         target: shops.domain,
         set: {
-          updatedAt: new Date(),
+          updatedAt: new Date().toISOString(),
         },
       })
 
@@ -121,13 +127,6 @@ async function upsertSessionAndShop(sessionData: Session): Promise<{
       throw new Error('Failed to create/retrieve session or shop')
     }
 
-    // Register webhooks (don't fail the entire flow if this fails)
-    // try {
-    //   await shopifyApp.webhooks.register({ session: sessionData })
-    // } catch (webhookError) {
-    //   logError('Webhook registration failed', webhookError)
-    // }
-
     return { session, shop }
   })
 }
@@ -137,26 +136,26 @@ async function upsertSessionAndShop(sessionData: Session): Promise<{
  */
 export const authMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
-    const headersObj = getHeaders()
-    const normalizedHeaders = Object.entries(headersObj)
-      .filter(([_, value]) => value !== undefined)
-      .map(([key, value]) => {
-        // Normalize authorization header to be capitalized
-        if (key.toLowerCase() === 'authorization') {
-          return ['Authorization', value]
-        }
-        return [key, value]
-      }) as [string, string][]
-
-    const headers = new Headers(normalizedHeaders)
-    const request = getWebRequest()
-    const url = new URL(request.url)
-
     try {
-      const currentId = await shopifyApp.session.getCurrentId({
-        isOnline: false,
-        rawRequest: request,
-      })
+      const headers = getHeaders()
+      const request = getWebRequest()
+      const url = new URL(request.url)
+      const token = extractSessionToken(headers, url.searchParams)
+
+      if (!token) {
+        throw new Error('No session token found')
+      }
+
+      const decodedSessionToken = await shopifyApp.session.decodeSessionToken(
+        token
+      )
+
+      if (!decodedSessionToken?.dest) {
+        throw new Error('Invalid session token: missing destination')
+      }
+
+      const shopDomain = new URL(decodedSessionToken.dest).hostname
+      const currentId = shopifyApp.session.getOfflineId(shopDomain)
 
       if (currentId) {
         const session = await db.query.sessions.findFirst({
@@ -176,26 +175,6 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
         }
       }
 
-      // Fallback to token-based authentication
-      const token = extractSessionToken(headers, url.searchParams)
-
-      if (!token) {
-        throw new Error('No session token found')
-      }
-
-      // Decode and validate token
-      const decodedSessionToken = await shopifyApp.session.decodeSessionToken(
-        token
-      )
-
-      if (!decodedSessionToken?.dest) {
-        throw new Error('Invalid session token: missing destination')
-      }
-
-      // Extract and normalize shop domain
-      const shopDomain = new URL(decodedSessionToken.dest).hostname
-
-      // Token exchange with normalized domain
       const accessToken = await shopifyApp.auth.tokenExchange({
         shop: shopDomain,
         sessionToken: token,
@@ -206,8 +185,8 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
         throw new Error('Token exchange failed: no shop found')
       }
 
-      // Database operations
       const { session, shop } = await upsertSessionAndShop(accessToken.session)
+
       const context = createAuthContext(session, shop)
 
       return next({ context })

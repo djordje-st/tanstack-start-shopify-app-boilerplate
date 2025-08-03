@@ -29,6 +29,12 @@ const handleShopifyAuth = createServerFn({ method: 'GET' })
 
 export const Route = createRootRouteWithContext()({
   head: () => ({
+    links: [
+      {
+        rel: 'preconnect',
+        href: 'https://cdn.shopify.com',
+      },
+    ],
     meta: [
       {
         charSet: 'utf-8',
