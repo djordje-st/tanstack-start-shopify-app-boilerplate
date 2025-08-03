@@ -1,8 +1,13 @@
-import { createHmac } from 'crypto'
-import { db } from '~/db'
-import { shops, sessions, type SelectShop } from '~/db/schema'
+import { type AdminApiClient } from '@shopify/admin-api-client'
 import { eq } from 'drizzle-orm'
-import { AdminApiClient } from '@shopify/admin-api-client'
+import { createHmac } from 'node:crypto'
+import { db } from '~/db'
+import {
+  sessions,
+  shops,
+  type SelectSession,
+  type SelectShop,
+} from '~/db/schema'
 import { logError } from '~/utils/logger'
 import { createGraphqlClient } from '~/utils/shopify-graphql-client'
 
@@ -51,6 +56,7 @@ async function verifyShopifyProxyRequest(request: Request): Promise<boolean> {
  * Optimized for performance while maintaining security
  */
 export async function authenticateProxy(request: Request): Promise<{
+  session: SelectSession
   shop: SelectShop
   graphql: AdminApiClient
 }> {
@@ -86,5 +92,5 @@ export async function authenticateProxy(request: Request): Promise<{
 
   const graphql = createGraphqlClient(shop, session)
 
-  return { shop, graphql }
+  return { session, shop, graphql }
 }

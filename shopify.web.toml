@@ -1,6 +1,6 @@
 roles = ["frontend", "backend"]
 webhooks_path = "/api/webhooks/app/uninstalled"
-port = 3000
+port = 8080
 
 [commands]
 dev = "pnpm app:dev"
