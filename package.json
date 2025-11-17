@@ -48,7 +48,7 @@
     "@graphql-codegen/cli": "^6.0.1",
     "@shopify/api-codegen-preset": "^1.2.0",
     "@shopify/app-bridge-types": "^0.5.3",
-    "@shopify/app-bridge-ui-types": "^0.3.3",
+    "@shopify/polaris-types": "^1.0.1",
     "@tanstack/eslint-config": "^0.3.2",
     "@tanstack/react-router-ssr-query": "^1.134.4",
     "@types/node": "^24.9.2",

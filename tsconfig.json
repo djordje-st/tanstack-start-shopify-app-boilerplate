@@ -9,7 +9,7 @@
     "types": [
       "vite/client",
       "@shopify/app-bridge-types",
-      "@shopify/app-bridge-ui-types"
+      "@shopify/polaris-types"
     ],
 
     /* Bundler mode */
