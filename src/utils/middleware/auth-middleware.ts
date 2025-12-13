@@ -1,140 +1,55 @@
-import { RequestedTokenType } from '@shopify/shopify-api'
 import { createMiddleware } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
-import { eq } from 'drizzle-orm'
-import type { Session } from '@shopify/shopify-api'
-import type { AdminApiClient } from '@shopify/admin-api-client'
-import type { GetShopQuery } from '~/types/generated/admin.generated'
-import type { SelectSession, SelectShop } from '~/db/schema'
-import { sessions, shops } from '~/db/schema'
-import { db } from '~/db'
-import { SHOP_QUERY } from '~/graphql/queries'
 import logger from '~/utils/logger'
-import { apiVersion, shopifyApp } from '~/utils/shopify-app'
-import { createGraphqlClient } from '~/utils/shopify-graphql-client'
-
-// Enhanced context type with better type safety
-type AuthContext = {
-  session: SelectSession
-  shop: SelectShop
-  graphql: AdminApiClient
-}
-
-/**
- * Extracts session token from multiple sources in order of priority
- */
-function extractSessionToken(
-  headers: Headers,
-  searchParams: URLSearchParams
-): string | null {
-  // 1. Authorization header (API calls) - normalized to be capitalized
-  const authHeader =
-    headers.get('Authorization') || headers.get('authorization')
-
-  if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.replace('Bearer ', '')
-  }
-
-  // 2. URL search params (initial page load)
-  const idToken = searchParams.get('id_token')
-
-  if (idToken) {
-    return idToken
-  }
-
-  return null
-}
+import {
+  createAuthContext,
+  decodeSessionToken,
+  extractSessionToken,
+  fetchSessionAndShop,
+  isSessionScopeValid,
+  performTokenExchange,
+} from '~/utils/shopify/auth'
 
 /**
- * Creates auth context from session and shop data
+ * Custom error for auth failures that should trigger retry
  */
-function createAuthContext(
-  session: SelectSession,
-  shop: SelectShop
-): AuthContext {
-  if (!session.accessToken) {
-    throw new Error('Session missing access token')
-  }
+class AuthRetryError extends Error {
+  constructor(message: string) {
+    super(message)
 
-  const graphql = createGraphqlClient(shop, session)
-
-  return {
-    session,
-    shop,
-    graphql,
+    this.name = 'AuthRetryError'
   }
 }
 
 /**
- * Gets or creates session and shop in database with proper error handling
+ * Creates an error response with retry header for XHR requests
  */
-async function upsertSessionAndShop(
-  shopData: GetShopQuery['shop'],
-  sessionData: Session
-): Promise<{
-  session: SelectSession
-  shop: SelectShop
-}> {
-  const now = new Date().toISOString()
-
-  const result = await db.transaction(async tx => {
-    // Upsert session with normalized shop domain - returns the upserted record
-    const [session] = await tx
-      .insert(sessions)
-      .values({
-        id: sessionData.id,
-        shop: sessionData.shop,
-        state: sessionData.state,
-        isOnline: sessionData.isOnline,
-        scope: sessionData.scope,
-        expires: sessionData.expires,
-        accessToken: sessionData.accessToken,
-      })
-      .onConflictDoUpdate({
-        target: sessions.id,
-        set: {
-          accessToken: sessionData.accessToken,
-          expires: sessionData.expires,
-          scope: sessionData.scope,
-          state: sessionData.state,
-          shop: sessionData.shop,
-        },
-      })
-      .returning()
-
-    // Upsert shop - returns the upserted record
-    const [shop] = await tx
-      .insert(shops)
-      .values({
-        domain: sessionData.shop,
-        name: shopData.name,
-        email: shopData.email,
-        timezone: shopData.ianaTimezone,
-        currency: shopData.currencyCode,
-        plan: shopData.plan.publicDisplayName,
-        updatedAt: now,
-      })
-      .onConflictDoUpdate({
-        target: shops.domain,
-        set: {
-          name: shopData.name,
-          email: shopData.email,
-          timezone: shopData.ianaTimezone,
-          currency: shopData.currencyCode,
-          plan: shopData.plan.publicDisplayName,
-          updatedAt: now,
-        },
-      })
-      .returning()
-
-    if (!session || !shop) {
-      throw new Error('Failed to create/retrieve session or shop')
-    }
-
-    return { session, shop }
+function createRetryResponse(message: string): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 401,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Retry-Invalid-Session-Request': '1',
+    },
   })
+}
 
-  return result
+/**
+ * Builds the bounce page URL with the current request path
+ */
+function buildBounceUrl(url: URL): string {
+  const searchParams = new URLSearchParams(url.searchParams)
+
+  // Remove id_token to prevent sending expired token to bounce page
+  searchParams.delete('id_token')
+
+  // Add shopify-reload param so App Bridge redirects back with fresh token
+  searchParams.set(
+    'shopify-reload',
+    `${url.pathname}?${searchParams.toString()}`
+  )
+
+  return `/auth/session-token-bounce?${searchParams.toString()}`
 }
 
 /**
@@ -142,82 +57,83 @@ async function upsertSessionAndShop(
  */
 export const authMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
+    const request = getRequest()
+    const url = new URL(request.url)
+    const headers = request.headers
+
     try {
-      const request = getRequest()
-      const headers = request.headers
-      const url = new URL(request.url)
       const token = extractSessionToken(headers, url.searchParams)
 
       if (!token) {
-        logger.error('No session token found', { headers, url })
-        throw new Error('No session token found')
+        throw new AuthRetryError('No session token found')
       }
 
-      const decodedSessionToken =
-        await shopifyApp.session.decodeSessionToken(token)
+      // Decode and validate the session token
+      let shopDomain: string
+      let sessionId: string | undefined
 
-      if (!decodedSessionToken?.dest) {
-        throw new Error('Invalid session token: missing destination')
+      try {
+        const result = await decodeSessionToken(token)
+
+        shopDomain = result.shopDomain
+        sessionId = result.sessionId
+      } catch {
+        throw new AuthRetryError('Invalid or expired session token')
       }
 
-      const shopDomain = new URL(decodedSessionToken.dest).hostname
-      const currentId = shopifyApp.session.getOfflineId(shopDomain)
+      // Fast path: Try to use cached session and shop
+      if (sessionId) {
+        const { session, shop } = await fetchSessionAndShop(
+          sessionId,
+          shopDomain
+        )
 
-      if (currentId) {
-        // Fetch session and shop in parallel for better performance
-        const [session, shop] = await Promise.all([
-          db.query.sessions.findFirst({
-            where: eq(sessions.id, currentId),
-          }),
-          db.query.shops.findFirst({
-            where: eq(shops.domain, shopDomain),
-          }),
-        ])
-
-        if (session?.accessToken && shop) {
+        if (
+          session?.accessToken &&
+          shop &&
+          isSessionScopeValid(session.scope)
+        ) {
           const context = createAuthContext(session, shop)
 
           return next({ context })
         }
       }
 
-      const accessToken = await shopifyApp.auth.tokenExchange({
-        shop: shopDomain,
-        sessionToken: token,
-        requestedTokenType: RequestedTokenType.OfflineAccessToken,
-      })
+      // Slow path: Token exchange required
+      let session, shop
 
-      const shopData = await fetch(
-        `https://${accessToken.session.shop}/admin/api/${apiVersion}/graphql.json`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Shopify-Access-Token': accessToken.session.accessToken!,
-          },
-          body: JSON.stringify({
-            query: SHOP_QUERY,
-          }),
-        }
-      ).then(res => res.json())
+      try {
+        const result = await performTokenExchange(token, shopDomain)
 
-      if (!accessToken.session?.shop) {
-        throw new Error('Token exchange failed: no shop found')
+        session = result.session
+        shop = result.shop
+      } catch (error) {
+        logger.error('Token exchange failed', {
+          shopDomain,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        })
+
+        throw new AuthRetryError('Token exchange failed')
       }
-
-      const { session, shop } = await upsertSessionAndShop(
-        shopData.data.shop,
-        accessToken.session
-      )
 
       const context = createAuthContext(session, shop)
 
       return next({ context })
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error'
+      // Handle auth retry errors
+      if (error instanceof AuthRetryError) {
+        logger.warn('Auth retry required', { error: error.message })
 
-      logger.error(errorMessage, error)
+        if (!headers.get('Authorization')) {
+          throw Response.redirect(buildBounceUrl(url), 302)
+        }
+
+        throw createRetryResponse(error.message)
+      }
+
+      logger.error('Auth middleware error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
 
       throw error
     }

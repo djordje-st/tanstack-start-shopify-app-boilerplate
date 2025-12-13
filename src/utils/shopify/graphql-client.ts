@@ -1,6 +1,6 @@
 import { createAdminApiClient } from '@shopify/admin-api-client'
 import type { SelectSession, SelectShop } from '~/db/schema'
-import { apiVersion } from '~/utils/shopify-app'
+import { apiVersion } from '~/utils/shopify/app'
 
 export const createGraphqlClient = (
   shop: SelectShop,

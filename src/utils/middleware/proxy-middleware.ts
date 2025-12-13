@@ -1,39 +1,45 @@
 import crypto from 'node:crypto'
 import { createMiddleware } from '@tanstack/react-start'
-import { eq } from 'drizzle-orm'
-import type { AdminApiClient } from '@shopify/admin-api-client'
-import type { SelectSession, SelectShop } from '~/db/schema'
-import { sessions, shops } from '~/db/schema'
-import { db } from '~/db'
-import { createGraphqlClient } from '~/utils/shopify-graphql-client'
-import { verifyShopifyProxyRequest } from '~/utils/shopify-proxy'
 import logger from '~/utils/logger'
+import {
+  createProxyContext,
+  fetchShopAndSession,
+  verifyShopifyProxyRequest,
+} from '~/utils/shopify/proxy'
 
-// Enhanced context type with better type safety
-type ProxyContext = {
-  session: SelectSession
-  shop: SelectShop
-  graphql: AdminApiClient
+/**
+ * Creates an error response with proper status code
+ */
+function createErrorResponse(message: string, status: number): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
 }
 
 /**
- * Creates proxy context from session and shop data
+ * Validates and retrieves shop/session context from shop domain
+ * @throws Response with appropriate status code on error
  */
-function createProxyContext(
-  session: SelectSession,
-  shop: SelectShop
-): ProxyContext {
-  if (!session.accessToken) {
-    throw new Error('Session missing access token')
+async function validateAndGetContext(shopDomain: string | null) {
+  if (!shopDomain) {
+    throw createErrorResponse('Missing shop parameter', 400)
   }
 
-  const graphql = createGraphqlClient(shop, session)
+  const { shop, session } = await fetchShopAndSession(shopDomain)
 
-  return {
-    session,
-    shop,
-    graphql,
+  if (!shop) {
+    throw createErrorResponse(`Shop not found: ${shopDomain}`, 404)
   }
+
+  if (!session?.accessToken) {
+    throw createErrorResponse(
+      `No valid session found for shop: ${shopDomain}`,
+      401
+    )
+  }
+
+  return createProxyContext(session, shop)
 }
 
 /**
@@ -42,113 +48,26 @@ function createProxyContext(
  */
 export const proxyMiddleware = createMiddleware({ type: 'request' }).server(
   async ({ request, next }) => {
-    try {
-      const url = new URL(request.url)
+    const url = new URL(request.url)
 
-      // Verify Shopify proxy signature
-      const isValidRequest = verifyShopifyProxyRequest(request)
-
-      if (!isValidRequest) {
-        throw new Error('Invalid Shopify proxy request')
-      }
-
-      // Extract shop domain from query params
-      const shopDomain = url.searchParams.get('shop')
-
-      if (!shopDomain) {
-        throw new Error('Missing shop parameter')
-      }
-
-      // Fetch shop and session from database
-      const result = await db
-        .select({
-          shop: shops,
-          session: sessions,
-        })
-        .from(shops)
-        .leftJoin(sessions, eq(shops.domain, sessions.shop))
-        .where(eq(shops.domain, shopDomain))
-        .limit(1)
-
-      const shop = result[0]?.shop
-      const session = result[0]?.session
-
-      if (!shop) {
-        throw new Error(`Shop not found: ${shopDomain}`)
-      }
-
-      if (!session?.accessToken) {
-        throw new Error(`No valid session found for shop: ${shopDomain}`)
-      }
-
-      const context = createProxyContext(session, shop)
-
-      return next({ context })
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error'
-
-      logger.error('Proxy middleware error:', errorMessage, error)
-
-      throw error
+    // Verify Shopify proxy signature
+    if (!verifyShopifyProxyRequest(request)) {
+      logger.warn('Invalid proxy signature', { url: url.pathname })
+      throw createErrorResponse('Invalid Shopify proxy request', 401)
     }
-  }
-)
 
-/**
- * Custom API authentication middleware for direct API calls
- * Validates shop domain format and provides shop/session context
- * Does not verify Shopify proxy signature (for direct API calls)
- */
-export const customApiMiddleware = createMiddleware({ type: 'request' }).server(
-  async ({ request, next }) => {
     try {
-      logger.info('🔑 Authenticating custom API request', request.headers)
-
-      const url = new URL(request.url)
-      const shopDomain = url.searchParams.get('shop')
-
-      if (!shopDomain) {
-        throw new Error('Missing shop parameter')
-      }
-
-      // Validate shop domain format (basic validation)
-      if (!shopDomain.includes('.myshopify.com')) {
-        throw new Error('Invalid shop domain format')
-      }
-
-      // Fetch shop and session from database
-      const result = await db
-        .select({
-          shop: shops,
-          session: sessions,
-        })
-        .from(shops)
-        .leftJoin(sessions, eq(shops.domain, sessions.shop))
-        .where(eq(shops.domain, shopDomain))
-        .limit(1)
-
-      const shop = result[0]?.shop
-      const session = result[0]?.session
-
-      if (!shop) {
-        throw new Error(`Shop not found: ${shopDomain}`)
-      }
-
-      if (!session?.accessToken) {
-        throw new Error(`No valid session found for shop: ${shopDomain}`)
-      }
-
-      const context = createProxyContext(session, shop)
-
+      const context = await validateAndGetContext(url.searchParams.get('shop'))
       return next({ context })
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error'
+      if (error instanceof Response) {
+        throw error
+      }
 
-      logger.error('Custom API middleware error:', errorMessage, error)
-
-      throw error
+      logger.error('Proxy middleware error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+      throw createErrorResponse('Internal server error', 500)
     }
   }
 )
@@ -230,10 +149,9 @@ export const webhookMiddleware = createMiddleware({ type: 'request' }).server(
 
       return next({ context })
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error'
-
-      logger.error('Webhook middleware error:', errorMessage, error)
+      logger.error('Webhook middleware error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
 
       throw error
     }

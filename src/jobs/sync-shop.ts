@@ -2,7 +2,7 @@ import { Queue, Worker } from 'bullmq'
 import { eq } from 'drizzle-orm'
 import { redis as connection } from '~/utils/redis'
 import { SHOP_QUERY } from '~/graphql/queries'
-import { createGraphqlClient } from '~/utils/shopify-graphql-client'
+import { createGraphqlClient } from '~/utils/shopify/graphql-client'
 import { db } from '~/db'
 import { shops } from '~/db/schema'
 
