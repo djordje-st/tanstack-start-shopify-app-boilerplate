@@ -1,4 +1,11 @@
 **/build
 **/public
-pnpm-lock.yaml
+.shopify
+.nitro
+.output
+.tanstack
+package-lock.yaml
 routeTree.gen.ts
+src/types/generated
+db/migrations/**
+extensions/assets/**.min.**

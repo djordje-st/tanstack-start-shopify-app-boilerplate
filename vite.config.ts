@@ -4,23 +4,44 @@ import tsConfigPaths from 'vite-tsconfig-paths'
 import viteReact from '@vitejs/plugin-react'
 import { nitroV2Plugin } from '@tanstack/nitro-v2-vite-plugin'
 
-export default defineConfig({
-  server: {
-    port: 8080,
-    allowedHosts: ['.trycloudflare.com'],
-  },
-  plugins: [
-    tsConfigPaths({
-      projects: ['./tsconfig.json'],
-    }),
-    tanstackStart(),
-    nitroV2Plugin({
-      preset: 'node-server',
-      compatibilityDate: '2025-10-04',
-    }),
-    viteReact(),
-  ],
-  optimizeDeps: {
-    include: ['@shopify/app-bridge-react'],
-  },
+export default defineConfig(config => {
+  return {
+    server: {
+      port: 8080,
+      allowedHosts: ['.trycloudflare.com'], // add your production domain here
+    },
+    build: {
+      sourcemap: config.mode === 'development',
+    },
+    plugins: [
+      tsConfigPaths({
+        projects: ['./tsconfig.json'],
+      }),
+      nitroV2Plugin({
+        preset: 'node-server',
+        compatibilityDate: '2025-10-04',
+        routeRules: {
+          '/**': {
+            headers: {
+              'Content-Security-Policy':
+                'frame-ancestors https://*.myshopify.com https://admin.shopify.com;',
+            },
+          },
+        },
+      }),
+      viteReact(),
+      tanstackStart(),
+    ],
+    optimizeDeps: {
+      include: ['@shopify/app-bridge-react'],
+      exclude: [
+        // Exclude server-only dependencies from pre-bundling
+        'drizzle-orm',
+        'pg',
+        'bullmq',
+        'ioredis',
+        '@shopify/shopify-api',
+      ],
+    },
+  }
 })
