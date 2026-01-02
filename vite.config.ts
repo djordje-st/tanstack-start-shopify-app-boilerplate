@@ -20,14 +20,6 @@ export default defineConfig(config => {
       nitroV2Plugin({
         preset: 'node-server',
         compatibilityDate: '2025-10-04',
-        routeRules: {
-          '/**': {
-            headers: {
-              'Content-Security-Policy':
-                'frame-ancestors https://*.myshopify.com https://admin.shopify.com;',
-            },
-          },
-        },
       }),
       viteReact(),
       tanstackStart(),

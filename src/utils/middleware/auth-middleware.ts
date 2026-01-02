@@ -1,14 +1,19 @@
 import { createMiddleware } from '@tanstack/react-start'
-import { getRequest } from '@tanstack/react-start/server'
+import { redirect } from '@tanstack/react-router'
+import {
+  getRequest,
+  setResponseHeader,
+  setResponseStatus,
+} from '@tanstack/react-start/server'
 import logger from '~/utils/logger'
 import {
   createAuthContext,
   decodeSessionToken,
   extractSessionToken,
-  fetchSessionAndShop,
   isSessionScopeValid,
   performTokenExchange,
 } from '~/utils/shopify/auth'
+import { fetchShopAndSession } from '~/utils/shopify/proxy'
 
 /**
  * Custom error for auth failures that should trigger retry
@@ -22,16 +27,26 @@ class AuthRetryError extends Error {
 }
 
 /**
- * Creates an error response with retry header for XHR requests
+ * Custom error for XHR auth failures that need a 401 response with retry header.
+ * This is serializable unlike Response objects.
  */
-function createRetryResponse(message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status: 401,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Retry-Invalid-Session-Request': '1',
-    },
-  })
+class AuthRetryResponseError extends Error {
+  constructor(message: string) {
+    super(message)
+
+    this.name = 'AuthRetryResponseError'
+  }
+}
+
+/**
+ * Sets response headers for XHR auth retry and throws serializable error
+ */
+function throwRetryResponse(message: string): never {
+  setResponseStatus(401)
+  setResponseHeader('Content-Type', 'application/json')
+  setResponseHeader('X-Shopify-Retry-Invalid-Session-Request', '1')
+
+  throw new AuthRetryResponseError(message)
 }
 
 /**
@@ -83,10 +98,7 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
 
       // Fast path: Try to use cached session and shop
       if (sessionId) {
-        const { session, shop } = await fetchSessionAndShop(
-          sessionId,
-          shopDomain
-        )
+        const { session, shop } = await fetchShopAndSession(shopDomain)
 
         if (
           session?.accessToken &&
@@ -125,10 +137,10 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
         logger.warn('Auth retry required', { error: error.message })
 
         if (!headers.get('Authorization')) {
-          throw Response.redirect(buildBounceUrl(url), 302)
+          throw redirect({ to: buildBounceUrl(url) })
         }
 
-        throw createRetryResponse(error.message)
+        throwRetryResponse(error.message)
       }
 
       logger.error('Auth middleware error', {

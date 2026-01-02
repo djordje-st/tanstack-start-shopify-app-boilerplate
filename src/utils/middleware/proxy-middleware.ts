@@ -53,6 +53,7 @@ export const proxyMiddleware = createMiddleware({ type: 'request' }).server(
     // Verify Shopify proxy signature
     if (!verifyShopifyProxyRequest(request)) {
       logger.warn('Invalid proxy signature', { url: url.pathname })
+
       throw createErrorResponse('Invalid Shopify proxy request', 401)
     }
 
@@ -77,6 +78,8 @@ type WebhookContext = {
   valid: boolean
   shopDomain: string | null
   webhookTopic: string | null
+  webhookId: string | null
+  triggeredAt: string | null
   body: unknown
 }
 
@@ -127,6 +130,8 @@ export const webhookMiddleware = createMiddleware({ type: 'request' }).server(
       // Extract webhook metadata from headers
       const shopDomain = request.headers.get('x-shopify-shop-domain')
       const webhookTopic = request.headers.get('x-shopify-topic')
+      const webhookId = request.headers.get('x-shopify-webhook-id')
+      const triggeredAt = request.headers.get('x-shopify-triggered-at')
 
       // Parse body JSON if body exists
       let parsedBody: unknown = undefined
@@ -144,6 +149,8 @@ export const webhookMiddleware = createMiddleware({ type: 'request' }).server(
         valid: true,
         shopDomain,
         webhookTopic,
+        webhookId,
+        triggeredAt,
         body: parsedBody,
       }
 
