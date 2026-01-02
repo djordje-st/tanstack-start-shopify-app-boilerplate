@@ -21,8 +21,8 @@ export default defineConfig(config => {
         preset: 'node-server',
         compatibilityDate: '2025-10-04',
       }),
-      viteReact(),
       tanstackStart(),
+      viteReact(),
     ],
     optimizeDeps: {
       include: ['@shopify/app-bridge-react'],

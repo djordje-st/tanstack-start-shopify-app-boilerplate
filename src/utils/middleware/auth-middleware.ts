@@ -10,10 +10,10 @@ import {
   createAuthContext,
   decodeSessionToken,
   extractSessionToken,
+  fetchSessionAndShop,
   isSessionScopeValid,
   performTokenExchange,
 } from '~/utils/shopify/auth'
-import { fetchShopAndSession } from '~/utils/shopify/proxy'
 
 /**
  * Custom error for auth failures that should trigger retry
@@ -98,7 +98,10 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
 
       // Fast path: Try to use cached session and shop
       if (sessionId) {
-        const { session, shop } = await fetchShopAndSession(shopDomain)
+        const { session, shop } = await fetchSessionAndShop(
+          sessionId,
+          shopDomain
+        )
 
         if (
           session?.accessToken &&
