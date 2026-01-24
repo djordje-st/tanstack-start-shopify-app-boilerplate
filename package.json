@@ -1,5 +1,5 @@
 {
-  "name": "tanstack-start-example-basic",
+  "name": "tanstack-start-shopify-app-boilerplate",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "graphql:generate": "graphql-codegen",
+    "graphql:generate:admin": "graphql-codegen --project=default",
+    "graphql:generate:storefront": "graphql-codegen --project=storefront",
+    "graphql:watch": "graphql-codegen --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -49,9 +52,12 @@
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^6.1.1",
+    "@shopify/admin-api-client": "^1.1.1",
     "@shopify/api-codegen-preset": "^1.2.2",
     "@shopify/app-bridge-types": "^0.5.3",
+    "@shopify/graphql-codegen": "^0.1.0",
     "@shopify/polaris-types": "^1.0.1",
+    "@shopify/storefront-api-client": "^1.0.9",
     "@tanstack/eslint-config": "^0.3.4",
     "@tanstack/react-router-ssr-query": "^1.156.0",
     "@types/node": "^25.0.10",

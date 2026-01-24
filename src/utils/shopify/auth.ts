@@ -8,7 +8,7 @@ import {
   sessionsTable,
   shopsTable,
 } from '~/db/schema'
-import { SHOP_QUERY } from '~/graphql/queries'
+import { SHOP_QUERY } from '~/graphql/admin/queries'
 import logger from '~/utils/logger'
 import { apiVersion, shopifyApp } from '~/utils/shopify/app'
 

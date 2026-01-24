@@ -6,7 +6,7 @@ import { sessionsTable, shopsTable } from '~/db/schema'
 import { redis } from '~/utils/redis'
 import logger from '~/utils/logger'
 import { createAdminApiGraphqlClient } from '~/utils/shopify/auth'
-import { SHOP_QUERY } from '~/graphql/queries'
+import { SHOP_QUERY } from '~/graphql/admin/queries'
 import { createWebhookWorker } from '~/utils/webhooks/queue'
 
 export interface ReconciliationJobData {

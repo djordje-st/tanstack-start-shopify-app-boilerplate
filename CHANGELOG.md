@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.1.0]
+
+### Added
+
+- **Lightweight GraphQL code generation** (`.graphqlrc.ts`) - Optimized codegen using `importTypes` to generate only operation-specific types:
+  - Admin API types imported from `@shopify/admin-api-client`
+  - Storefront API types imported from `@shopify/storefront-api-client`
+  - Generated files are ~25 lines instead of 50,000+ lines
+  - Support for Shopify Functions extensions with dynamic schema detection
+
+- **New npm scripts for GraphQL codegen**:
+  - `graphql:generate` - Generate all projects
+  - `graphql:generate:admin` - Generate Admin API types only
+  - `graphql:generate:storefront` - Generate Storefront API types only
+  - `graphql:watch` - Watch mode for development
+
+- **Organized GraphQL directory structure**:
+  - `src/graphql/admin/` - Admin API queries and mutations
+  - `src/graphql/storefront/` - Storefront API queries and mutations
+
+### Changed
+
+- **Moved queries** - `src/graphql/queries.ts` → `src/graphql/admin/queries.ts`
+- **Updated imports** - All files now import from `~/graphql/admin/queries`
+
+### Removed
+
+- `src/graphql/queries.ts` - Moved to admin subdirectory
+- `src/types/generated/admin.types.d.ts` - Replaced by lightweight `admin.generated.d.ts`
+- `src/types/generated/admin-2026-01.schema.json` - No longer needed with `importTypes`
+
 ## [2.0.0]
 
 ### Added

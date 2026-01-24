@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { SHOP_QUERY } from '~/graphql/queries'
+import { SHOP_QUERY } from '~/graphql/admin/queries'
 import { proxyMiddleware } from '~/utils/middleware/proxy-middleware'
 import { handleProxyError } from '~/utils/shopify/proxy'
 
