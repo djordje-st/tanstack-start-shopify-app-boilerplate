@@ -5,55 +5,57 @@ const WEBHOOK_KEY_PREFIX = 'webhook:processed:'
 const TTL_SECONDS = 7 * 24 * 60 * 60 // 7 days
 
 /**
- * Check if a webhook has already been processed
- * @param webhookId - The X-Shopify-Webhook-Id header value
+ * Check if a webhook event has already been processed
+ * Uses X-Shopify-Event-Id for duplicate detection as recommended by Shopify docs
+ * @param eventId - The X-Shopify-Event-Id header value
  * @returns true if already processed, false otherwise
  */
-export async function isWebhookProcessed(webhookId: string): Promise<boolean> {
+export async function isWebhookProcessed(eventId: string): Promise<boolean> {
   try {
-    return (await redis.exists(`${WEBHOOK_KEY_PREFIX}${webhookId}`)) === 1
+    return (await redis.exists(`${WEBHOOK_KEY_PREFIX}${eventId}`)) === 1
   } catch (error) {
-    // If Redis fails, log error but return false to allow processing
-    // (better to potentially process a duplicate than to drop the webhook)
-    logger.error('Failed to check webhook idempotency', {
-      webhookId,
+    logger.error('[webhook] Failed to check idempotency', {
+      type: 'webhook',
+      eventId,
       error: error instanceof Error ? error.message : 'Unknown error',
     })
 
+    // Fail open - allow processing if Redis check fails
     return false
   }
 }
 
 /**
- * Mark a webhook as processed with TTL expiration
- * @param webhookId - The X-Shopify-Webhook-Id header value
+ * Mark a webhook event as processed with TTL expiration
+ * @param eventId - The X-Shopify-Event-Id header value
  */
-export async function markWebhookProcessed(webhookId: string): Promise<void> {
+export async function markWebhookProcessed(eventId: string): Promise<void> {
   try {
-    await redis.set(`${WEBHOOK_KEY_PREFIX}${webhookId}`, '1', 'EX', TTL_SECONDS)
+    await redis.set(`${WEBHOOK_KEY_PREFIX}${eventId}`, '1', 'EX', TTL_SECONDS)
   } catch (error) {
-    // Log but don't throw - failing to mark shouldn't break webhook processing
-    logger.error('Failed to mark webhook as processed', {
-      webhookId,
+    logger.error('[webhook] Failed to mark as processed', {
+      type: 'webhook',
+      eventId,
       error: error instanceof Error ? error.message : 'Unknown error',
     })
   }
 }
 
 /**
- * Check webhook timestamp and log warning if delayed more than 24 hours
+ * Check webhook timestamp and determine if it's significantly delayed
+ * Logs warning if delayed more than 24 hours
  * @param triggeredAt - ISO timestamp from X-Shopify-Triggered-At header
- * @param webhookTopic - The webhook topic for logging context
- * @param shopDomain - The shop domain for logging context
- * @returns true if webhook is delayed (>24 hours old), false otherwise
+ * @param topic - The webhook topic for logging context
+ * @param domain - The shop domain for logging context
+ * @returns delay in hours, or null if no timestamp
  */
-export function checkWebhookDelay(
+export function getWebhookDelayHours(
   triggeredAt: string | null,
-  webhookTopic: string | null,
-  shopDomain: string | null
-): boolean {
+  topic: string | null,
+  domain: string | null
+): number | null {
   if (!triggeredAt) {
-    return false
+    return null
   }
 
   const webhookTime = new Date(triggeredAt).getTime()
@@ -62,15 +64,14 @@ export function checkWebhookDelay(
   const delayHours = delayMs / (1000 * 60 * 60)
 
   if (delayHours > 24) {
-    logger.warn('Webhook received with significant delay', {
-      webhookTopic,
-      shopDomain,
+    logger.warn('[webhook] Received with significant delay (>24h)', {
+      type: 'webhook',
+      topic,
+      domain,
       triggeredAt,
       delayHours: Math.round(delayHours * 10) / 10,
     })
-
-    return true
   }
 
-  return false
+  return delayHours
 }

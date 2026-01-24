@@ -1,11 +1,11 @@
-import { nodeAdapterInitialized } from '@shopify/shopify-api/adapters/node'
+import { webApiAdapterInitialized } from '@shopify/shopify-api/adapters/web-api'
 import { ApiVersion, shopifyApi } from '@shopify/shopify-api'
 
-if (!nodeAdapterInitialized) {
-  throw new Error('Node adapter not initialized')
+if (!webApiAdapterInitialized) {
+  throw new Error('Web API adapter not initialized')
 }
 
-export const apiVersion = ApiVersion.October25
+export const apiVersion = ApiVersion.January26
 
 export const shopifyApp = shopifyApi({
   apiVersion,

@@ -1,5 +1,4 @@
 /// <reference types="vite/client" />
-import { NavMenu } from '@shopify/app-bridge-react'
 import {
   HeadContent,
   Link,
@@ -7,9 +6,8 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
-import { NotFound } from '~/components/NotFound'
+import { DefaultCatchBoundary } from '~/components/default-catch-boundary'
+import { NotFound } from '~/components/not-found'
 
 export const Route = createRootRouteWithContext()({
   head: () => ({
@@ -33,11 +31,6 @@ export const Route = createRootRouteWithContext()({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        httpEquiv: 'Content-Security-Policy',
-        content:
-          'frame-ancestors https://*.myshopify.com https://admin.shopify.com;',
-      },
-      {
         name: 'shopify-debug',
         content: 'web-vitals',
       },
@@ -49,9 +42,13 @@ export const Route = createRootRouteWithContext()({
     scripts: [
       {
         src: 'https://cdn.shopify.com/shopifycloud/app-bridge.js',
+        rel: 'preconnect',
+        fetchPriority: 'high',
       },
       {
         src: 'https://cdn.shopify.com/shopifycloud/polaris.js',
+        rel: 'preconnect',
+        fetchPriority: 'high',
       },
     ],
   }),
@@ -68,19 +65,17 @@ export const Route = createRootRouteWithContext()({
     </s-page>
   ),
   notFoundComponent: () => <NotFound />,
-  component: RootComponent,
+  shellComponent: RootComponent,
 })
 
 function RootComponent() {
   return (
     <RootDocument>
-      <NavMenu>
+      <s-app-nav>
         <Link to="/" rel="home">
           Home
         </Link>
-
-        <Link to="/about">About</Link>
-      </NavMenu>
+      </s-app-nav>
 
       <Outlet />
     </RootDocument>
@@ -89,7 +84,7 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html suppressHydrationWarning>
+    <html>
       <head>
         <HeadContent />
       </head>
@@ -97,7 +92,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <body>
         {children}
 
-        <TanStackRouterDevtools position="bottom-right" />
         <Scripts />
       </body>
     </html>

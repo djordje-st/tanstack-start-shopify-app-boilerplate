@@ -1,152 +1,89 @@
-import { createMiddleware } from '@tanstack/react-start'
+import { RequestedTokenType, Session } from '@shopify/shopify-api'
 import { redirect } from '@tanstack/react-router'
-import {
-  getRequest,
-  setResponseHeader,
-  setResponseStatus,
-} from '@tanstack/react-start/server'
+import { createMiddleware } from '@tanstack/react-start'
+import { getRequest } from '@tanstack/react-start/server'
 import logger from '~/utils/logger'
 import {
-  createAuthContext,
-  decodeSessionToken,
-  extractSessionToken,
-  fetchSessionAndShop,
-  isSessionScopeValid,
-  performTokenExchange,
+  createAdminApiGraphqlClient,
+  getValidSessionWithShop,
+  upsertSessionAndShop,
 } from '~/utils/shopify/auth'
+import { shopifyApp } from '~/utils/shopify/app'
 
-/**
- * Custom error for auth failures that should trigger retry
- */
-class AuthRetryError extends Error {
-  constructor(message: string) {
-    super(message)
-
-    this.name = 'AuthRetryError'
-  }
-}
-
-/**
- * Custom error for XHR auth failures that need a 401 response with retry header.
- * This is serializable unlike Response objects.
- */
-class AuthRetryResponseError extends Error {
-  constructor(message: string) {
-    super(message)
-
-    this.name = 'AuthRetryResponseError'
-  }
-}
-
-/**
- * Sets response headers for XHR auth retry and throws serializable error
- */
-function throwRetryResponse(message: string): never {
-  setResponseStatus(401)
-  setResponseHeader('Content-Type', 'application/json')
-  setResponseHeader('X-Shopify-Retry-Invalid-Session-Request', '1')
-
-  throw new AuthRetryResponseError(message)
-}
-
-/**
- * Builds the bounce page URL with the current request path
- */
-function buildBounceUrl(url: URL): string {
-  const searchParams = new URLSearchParams(url.searchParams)
-
-  // Remove id_token to prevent sending expired token to bounce page
-  searchParams.delete('id_token')
-
-  // Add shopify-reload param so App Bridge redirects back with fresh token
-  searchParams.set(
-    'shopify-reload',
-    `${url.pathname}?${searchParams.toString()}`
-  )
-
-  return `/auth/session-token-bounce?${searchParams.toString()}`
-}
-
-/**
- * Main authentication middleware
- */
 export const authMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
-    const request = getRequest()
-    const url = new URL(request.url)
-    const headers = request.headers
-
     try {
-      const token = extractSessionToken(headers, url.searchParams)
+      const request = getRequest()
 
-      if (!token) {
-        throw new AuthRetryError('No session token found')
-      }
-
-      // Decode and validate the session token
-      let shopDomain: string
-      let sessionId: string | undefined
+      let encodedSessionToken = null
+      let decodedSessionToken = null
 
       try {
-        const result = await decodeSessionToken(token)
+        encodedSessionToken =
+          getSessionTokenHeader(request) || getSessionTokenFromUrlParam(request)
 
-        shopDomain = result.shopDomain
-        sessionId = result.sessionId
-      } catch {
-        throw new AuthRetryError('Invalid or expired session token')
-      }
-
-      // Fast path: Try to use cached session and shop
-      if (sessionId) {
-        const { session, shop } = await fetchSessionAndShop(
-          sessionId,
-          shopDomain
-        )
-
-        if (
-          session?.accessToken &&
-          shop &&
-          isSessionScopeValid(session.scope)
-        ) {
-          const context = createAuthContext(session, shop)
-
-          return next({ context })
+        if (!encodedSessionToken) {
+          throw new Error('No session token found')
         }
-      }
 
-      // Slow path: Token exchange required
-      let session, shop
+        decodedSessionToken =
+          await shopifyApp.session.decodeSessionToken(encodedSessionToken)
+      } catch (e) {
+        const isDocumentRequest = !request.headers.get('authorization')
 
-      try {
-        const result = await performTokenExchange(token, shopDomain)
+        if (isDocumentRequest) {
+          redirectToSessionTokenBouncePage(request)
+        }
 
-        session = result.session
-        shop = result.shop
-      } catch (error) {
-        logger.error('Token exchange failed', {
-          shopDomain,
-          error: error instanceof Error ? error.message : 'Unknown error',
+        throw new Response(undefined, {
+          status: 401,
+          statusText: 'Unauthorized',
+          headers: new Headers({
+            'X-Shopify-Retry-Invalid-Session-Request': '1',
+          }),
         })
-
-        throw new AuthRetryError('Token exchange failed')
       }
 
-      const context = createAuthContext(session, shop)
+      const dest = new URL(decodedSessionToken.dest)
+      const shopDomain = dest.hostname
 
-      return next({ context })
-    } catch (error) {
-      // Handle auth retry errors
-      if (error instanceof AuthRetryError) {
-        logger.warn('Auth retry required', { error: error.message })
+      const sessionId = shopifyApp.session.getOfflineId(shopDomain)
 
-        if (!headers.get('Authorization')) {
-          throw redirect({ to: buildBounceUrl(url) })
+      if (sessionId) {
+        const existing = await getValidSessionWithShop(sessionId)
+
+        if (existing) {
+          return next({
+            context: {
+              session: existing.session,
+              shop: existing.shop,
+              admin: createAdminApiGraphqlClient(existing.session),
+            },
+          })
         }
-
-        throwRetryResponse(error.message)
       }
 
-      logger.error('Auth middleware error', {
+      const accessToken = await shopifyApp.auth.tokenExchange({
+        shop: shopDomain,
+        sessionToken: encodedSessionToken,
+        requestedTokenType: RequestedTokenType.OfflineAccessToken,
+      })
+
+      const newSessionData = new Session(accessToken.session)
+
+      const { session: upsertedSession, shop: upsertedShop } =
+        await upsertSessionAndShop(newSessionData)
+
+      return next({
+        context: {
+          session: upsertedSession,
+          shop: upsertedShop,
+          admin: createAdminApiGraphqlClient(upsertedSession),
+        },
+      })
+    } catch (error) {
+      logger.error('[auth] Middleware error', {
+        type: 'auth',
         error: error instanceof Error ? error.message : 'Unknown error',
       })
 
@@ -154,3 +91,35 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
     }
   }
 )
+
+function getSessionTokenHeader(request: Request) {
+  return request.headers.get('authorization')?.replace('Bearer ', '')
+}
+
+function getSessionTokenFromUrlParam(request: Request) {
+  const url = new URL(request.url)
+
+  return url.searchParams.get('id_token')
+}
+
+function redirectToSessionTokenBouncePage(request: Request) {
+  const url = new URL(request.url)
+  const searchParams = new URLSearchParams(url.search)
+
+  // Remove stale id_token to prevent reuse
+  searchParams.delete('id_token')
+
+  // Build the reload path (path + remaining query params)
+  const reloadParams = searchParams.toString()
+  const reloadPath = reloadParams
+    ? `${url.pathname}?${reloadParams}`
+    : url.pathname
+
+  // Add shopify-reload param for App Bridge to redirect back after getting fresh token
+  searchParams.set('shopify-reload', reloadPath)
+
+  throw redirect({
+    to: '/session-token-bounce',
+    search: Object.fromEntries(searchParams.entries()),
+  })
+}

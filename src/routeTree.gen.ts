@@ -9,15 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AboutRouteImport } from './routes/about'
+import { Route as SessionTokenBounceRouteImport } from './routes/session-token-bounce'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiProxyEndpointRouteImport } from './routes/api/proxy-endpoint'
 import { Route as ApiWebhooksAppUninstalledRouteImport } from './routes/api/webhooks/app/uninstalled'
 import { Route as ApiWebhooksAppComplianceRouteImport } from './routes/api/webhooks/app/compliance'
 
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+const SessionTokenBounceRoute = SessionTokenBounceRouteImport.update({
+  id: '/session-token-bounce',
+  path: '/session-token-bounce',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -45,14 +45,14 @@ const ApiWebhooksAppComplianceRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/session-token-bounce': typeof SessionTokenBounceRoute
   '/api/proxy-endpoint': typeof ApiProxyEndpointRoute
   '/api/webhooks/app/compliance': typeof ApiWebhooksAppComplianceRoute
   '/api/webhooks/app/uninstalled': typeof ApiWebhooksAppUninstalledRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/session-token-bounce': typeof SessionTokenBounceRoute
   '/api/proxy-endpoint': typeof ApiProxyEndpointRoute
   '/api/webhooks/app/compliance': typeof ApiWebhooksAppComplianceRoute
   '/api/webhooks/app/uninstalled': typeof ApiWebhooksAppUninstalledRoute
@@ -60,7 +60,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
+  '/session-token-bounce': typeof SessionTokenBounceRoute
   '/api/proxy-endpoint': typeof ApiProxyEndpointRoute
   '/api/webhooks/app/compliance': typeof ApiWebhooksAppComplianceRoute
   '/api/webhooks/app/uninstalled': typeof ApiWebhooksAppUninstalledRoute
@@ -69,21 +69,21 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/about'
+    | '/session-token-bounce'
     | '/api/proxy-endpoint'
     | '/api/webhooks/app/compliance'
     | '/api/webhooks/app/uninstalled'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/about'
+    | '/session-token-bounce'
     | '/api/proxy-endpoint'
     | '/api/webhooks/app/compliance'
     | '/api/webhooks/app/uninstalled'
   id:
     | '__root__'
     | '/'
-    | '/about'
+    | '/session-token-bounce'
     | '/api/proxy-endpoint'
     | '/api/webhooks/app/compliance'
     | '/api/webhooks/app/uninstalled'
@@ -91,7 +91,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
+  SessionTokenBounceRoute: typeof SessionTokenBounceRoute
   ApiProxyEndpointRoute: typeof ApiProxyEndpointRoute
   ApiWebhooksAppComplianceRoute: typeof ApiWebhooksAppComplianceRoute
   ApiWebhooksAppUninstalledRoute: typeof ApiWebhooksAppUninstalledRoute
@@ -99,11 +99,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/session-token-bounce': {
+      id: '/session-token-bounce'
+      path: '/session-token-bounce'
+      fullPath: '/session-token-bounce'
+      preLoaderRoute: typeof SessionTokenBounceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -139,7 +139,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
+  SessionTokenBounceRoute: SessionTokenBounceRoute,
   ApiProxyEndpointRoute: ApiProxyEndpointRoute,
   ApiWebhooksAppComplianceRoute: ApiWebhooksAppComplianceRoute,
   ApiWebhooksAppUninstalledRoute: ApiWebhooksAppUninstalledRoute,
@@ -149,10 +149,11 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

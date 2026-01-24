@@ -7,9 +7,14 @@ export const redis = new Redis(`${process.env.REDIS_URL!}?family=0`, {
 })
 
 redis.on('connect', () => {
-  logger.info('Redis connected')
+  logger.info('[redis] Connected', {
+    type: 'redis',
+  })
 })
 
 redis.on('error', error => {
-  logger.error('Redis connection error:', error)
+  logger.error('[redis] Connection error', {
+    type: 'redis',
+    error: error instanceof Error ? error.message : 'Unknown error',
+  })
 })

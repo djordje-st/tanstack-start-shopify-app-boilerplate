@@ -1,7 +1,7 @@
 /* eslint-disable eslint-comments/disable-enable-pair */
 /* eslint-disable eslint-comments/no-unlimited-disable */
 /* eslint-disable */
-import type * as AdminTypes from './admin.types';
+import type * as AdminTypes from './admin.types.d.ts';
 
 export type GetShopQueryVariables = AdminTypes.Exact<{ [key: string]: never; }>;
 

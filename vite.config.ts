@@ -22,7 +22,11 @@ export default defineConfig(config => {
         compatibilityDate: '2025-10-04',
       }),
       tanstackStart(),
-      viteReact(),
+      viteReact({
+        babel: {
+          plugins: ['babel-plugin-react-compiler'],
+        },
+      }),
     ],
     optimizeDeps: {
       include: ['@shopify/app-bridge-react'],
