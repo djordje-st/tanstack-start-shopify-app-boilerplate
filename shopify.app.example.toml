@@ -1,16 +1,17 @@
+# Run `shopify app config link` to link your app to the project
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = ""
-organization_id = ""
-name = ""
-application_url = "https://example.com"
+client_id = "your-client-id"
+organization_id = "your-organization-id"
+name = "your-app-name"
+application_url = "https://your-app-url.com"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
 
 [webhooks]
-api_version = "2025-07"
+api_version = "2026-01"
 
   [[webhooks.subscriptions]]
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
