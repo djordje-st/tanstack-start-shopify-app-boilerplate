@@ -1,10 +1,10 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: lookie-postgres
+    container_name: shopify-tanstack-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: lookie_dev
+      POSTGRES_DB: shopify_tanstack_dev
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
@@ -14,7 +14,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: lookie-redis
+    container_name: shopify-tanstack-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
