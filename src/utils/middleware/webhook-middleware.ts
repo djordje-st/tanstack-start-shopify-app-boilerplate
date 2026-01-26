@@ -51,7 +51,11 @@ export const webhookMiddleware = createMiddleware({ type: 'request' }).server(
 
       const validation = await shopifyApp.webhooks.validate({
         rawBody,
-        rawRequest: request,
+        rawRequest: {
+          method: request.method,
+          url: request.url,
+          headers: request.headers,
+        },
       })
 
       if (!validation.valid) {
