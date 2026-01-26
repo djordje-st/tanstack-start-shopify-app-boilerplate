@@ -1,16 +1,209 @@
 import { AuthScopes, Session } from '@shopify/shopify-api'
+import { redirect } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
-import type {
-  SelectSession,
-  SelectShop} from '~/db/schema';
+import { isbot } from 'isbot'
+import type { SelectSession, SelectShop } from '~/db/schema'
 import { db } from '~/db'
-import {
-  sessionsTable,
-  shopsTable,
-} from '~/db/schema'
+import { sessionsTable, shopsTable } from '~/db/schema'
 import { SHOP_QUERY } from '~/graphql/admin/queries'
 import logger from '~/utils/logger'
 import { apiVersion, shopifyApp } from '~/utils/shopify/app'
+
+const SHOPIFY_USER_AGENTS = [/Shopify POS\//, /Shopify Mobile\//]
+
+export const AUTH_HEADERS = {
+  REAUTH_URL: 'X-Shopify-API-Request-Failure-Reauthorize-Url',
+  RETRY_INVALID_SESSION: 'X-Shopify-Retry-Invalid-Session-Request',
+} as const
+
+/**
+ * Reject requests from bots to prevent unnecessary auth flows
+ * Allows Shopify POS and Mobile apps through
+ */
+export function rejectBotRequest(request: Request): void {
+  const userAgent = request.headers.get('User-Agent') ?? ''
+
+  if (SHOPIFY_USER_AGENTS.some(agent => agent.test(userAgent))) {
+    logger.debug('[auth] Request is from Shopify agent, allowing', {
+      type: 'auth',
+    })
+    return
+  }
+
+  if (isbot(userAgent)) {
+    logger.debug('[auth] Rejecting bot request', {
+      type: 'auth',
+      userAgent: userAgent.slice(0, 100),
+    })
+    throw new Response(undefined, { status: 410, statusText: 'Gone' })
+  }
+}
+
+/**
+ * Handle CORS preflight OPTIONS requests
+ */
+export function handleOptionsRequest(
+  request: Request,
+  additionalHeaders: Array<string> = []
+): void {
+  if (request.method !== 'OPTIONS') {
+    return
+  }
+
+  const corsHeaders = new Set([
+    'Authorization',
+    'Content-Type',
+    ...additionalHeaders,
+  ])
+
+  throw new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': [...corsHeaders].join(', '),
+      'Access-Control-Expose-Headers': AUTH_HEADERS.REAUTH_URL,
+      'Access-Control-Max-Age': '7200',
+    },
+  })
+}
+
+/**
+ * Add CORS headers to a response for cross-origin requests
+ */
+export function addCorsHeaders(
+  response: Response,
+  request: Request,
+  additionalHeaders: Array<string> = []
+): Response {
+  const origin = request.headers.get('Origin')
+  const appUrl = shopifyApp.config.hostName
+
+  if (!origin || origin.includes(appUrl)) {
+    return response
+  }
+
+  const corsHeaders = new Set([
+    'Authorization',
+    'Content-Type',
+    ...additionalHeaders,
+  ])
+
+  response.headers.set('Access-Control-Allow-Origin', '*')
+  response.headers.set(
+    'Access-Control-Allow-Headers',
+    [...corsHeaders].join(', ')
+  )
+  response.headers.set('Access-Control-Expose-Headers', AUTH_HEADERS.REAUTH_URL)
+
+  return response
+}
+
+/**
+ * Add security headers for document responses in embedded apps
+ */
+export function addDocumentHeaders(
+  headers: Headers,
+  shopDomain?: string
+): void {
+  const cdnUrl = 'https://cdn.shopify.com'
+  const appBridgeUrl = 'https://cdn.shopify.com/shopifycloud/app-bridge.js'
+
+  if (shopDomain) {
+    headers.set(
+      'Link',
+      `<${cdnUrl}>; rel="preconnect", <${appBridgeUrl}>; rel="preload"; as="script"`
+    )
+    headers.set(
+      'Content-Security-Policy',
+      `frame-ancestors https://${shopDomain} https://admin.shopify.com https://*.spin.dev;`
+    )
+  } else {
+    headers.set('Content-Security-Policy', `frame-ancestors 'none';`)
+  }
+}
+
+/**
+ * Extract session token from Authorization header
+ */
+export function getSessionTokenFromHeader(request: Request): string | null {
+  return request.headers.get('authorization')?.replace('Bearer ', '') ?? null
+}
+
+/**
+ * Extract session token from URL parameter
+ */
+export function getSessionTokenFromUrl(request: Request): string | null {
+  const url = new URL(request.url)
+
+  return url.searchParams.get('id_token')
+}
+
+/**
+ * Get session token from request (header first, then URL param)
+ */
+export function getSessionToken(request: Request): string | null {
+  return getSessionTokenFromHeader(request) ?? getSessionTokenFromUrl(request)
+}
+
+/**
+ * Get shop domain from request URL
+ */
+export function getShopFromRequest(request: Request): string | null {
+  const url = new URL(request.url)
+
+  return url.searchParams.get('shop')
+}
+
+/**
+ * Determine if request is a document request vs fetch request
+ */
+export function isDocumentRequest(request: Request): boolean {
+  return !request.headers.get('authorization')
+}
+
+/**
+ * Redirect to session token bounce page for document requests
+ */
+export function redirectToBouncePage(request: Request): never {
+  const url = new URL(request.url)
+  const searchParams = new URLSearchParams(url.search)
+
+  searchParams.delete('id_token')
+
+  const reloadParams = searchParams.toString()
+  const reloadPath = reloadParams
+    ? `${url.pathname}?${reloadParams}`
+    : url.pathname
+
+  searchParams.set('shopify-reload', reloadPath)
+
+  throw redirect({
+    to: '/session-token-bounce',
+    search: Object.fromEntries(searchParams.entries()),
+  })
+}
+
+/**
+ * Respond with 401 for invalid session token
+ */
+export function respondToInvalidSessionToken(
+  request: Request,
+  options: { retryRequest?: boolean } = {}
+): never {
+  const { retryRequest = true } = options
+
+  if (isDocumentRequest(request)) {
+    redirectToBouncePage(request)
+  }
+
+  throw new Response(undefined, {
+    status: 401,
+    statusText: 'Unauthorized',
+    headers: retryRequest
+      ? { [AUTH_HEADERS.RETRY_INVALID_SESSION]: '1' }
+      : undefined,
+  })
+}
 
 export function createAdminApiGraphqlClient(session: Session | SelectSession) {
   const shopifySession =

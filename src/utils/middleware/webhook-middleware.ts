@@ -1,5 +1,5 @@
 import { createMiddleware } from '@tanstack/react-start'
-import type {WebhookJobData} from '~/utils/webhooks/queue';
+import type { WebhookJobData } from '~/utils/webhooks/queue'
 import logger from '~/utils/logger'
 import { shopifyApp } from '~/utils/shopify/app'
 import {
@@ -7,21 +7,44 @@ import {
   isWebhookProcessed,
   markWebhookProcessed,
 } from '~/utils/webhooks/idempotency'
-import {  webhookQueue } from '~/utils/webhooks/queue'
+import { webhookQueue } from '~/utils/webhooks/queue'
+
+export interface WebhookContext {
+  eventId: string
+  webhookId: string
+  topic: string
+  domain: string
+  apiVersion: string
+  subTopic?: string
+  body: unknown
+  triggeredAt: string | null
+  receivedAt: string
+  isDuplicate: boolean
+  delayHours: number | null
+  /**
+   * Queue the webhook for background processing
+   * Call this in the endpoint after any synchronous work
+   */
+  queueForProcessing: () => Promise<void>
+}
 
 /**
- * Webhook middleware that validates, deduplicates, and queues webhooks for processing.
+ * Webhook middleware that validates and provides context for webhook handlers.
  *
  * Following Shopify best practices:
- * - Responds with 200 immediately after validation
  * - Uses X-Shopify-Event-Id for duplicate detection
- * - Queues processing for background execution
- * - Logs delayed webhooks (>24h)
+ * - Provides delay information for late webhooks
+ * - Offers queueForProcessing() for background execution
+ *
+ * The endpoint is responsible for:
+ * - Calling queueForProcessing() if needed
+ * - Returning the response (should be 200 for valid webhooks)
  */
 export const webhookMiddleware = createMiddleware({ type: 'request' }).server(
-  async ({ request }) => {
+  async ({ request, next }) => {
     const eventId = request.headers.get('x-shopify-event-id')
     const triggeredAt = request.headers.get('x-shopify-triggered-at')
+    const receivedAt = new Date().toISOString()
 
     try {
       const rawBody = await request.text()
@@ -38,61 +61,73 @@ export const webhookMiddleware = createMiddleware({ type: 'request' }).server(
           domain: request.headers.get('x-shopify-shop-domain'),
         })
 
-        return new Response('Invalid webhook', { status: 401 })
+        throw new Response('Invalid webhook', { status: 401 })
       }
 
       const { webhookId, topic, domain, apiVersion, subTopic } = validation
 
-      // Check for duplicate using eventId (recommended by Shopify)
-      // Fall back to webhookId if eventId not available
+      // Use eventId for duplicate detection, fall back to webhookId
       const idempotencyKey = eventId ?? webhookId
+      const isDuplicate = await isWebhookProcessed(idempotencyKey)
+      const delayHours = getWebhookDelayHours(triggeredAt, topic, domain)
+      const body = rawBody ? JSON.parse(rawBody) : undefined
 
-      if (await isWebhookProcessed(idempotencyKey)) {
-        logger.info('[webhook] Duplicate webhook ignored', {
-          type: 'webhook',
-          eventId,
-          webhookId,
-          topic,
-          domain,
-        })
-
-        return new Response('OK', { status: 200 })
-      }
-
-      // Log if webhook is significantly delayed
-      getWebhookDelayHours(triggeredAt, topic, domain)
-
-      // Mark as processed immediately to prevent duplicates during queue processing
-      await markWebhookProcessed(idempotencyKey)
-
-      // Queue for background processing
-      const jobData: WebhookJobData = {
+      const context: WebhookContext = {
         eventId: idempotencyKey,
         webhookId,
         topic,
         domain,
         apiVersion,
         subTopic,
-        body: rawBody ? JSON.parse(rawBody) : undefined,
+        body,
         triggeredAt,
-        receivedAt: new Date().toISOString(),
+        receivedAt,
+        isDuplicate,
+        delayHours,
+        queueForProcessing: async () => {
+          if (isDuplicate) {
+            logger.info('[webhook] Skipping queue - duplicate', {
+              type: 'webhook',
+              eventId: idempotencyKey,
+              topic,
+              domain,
+            })
+            return
+          }
+
+          await markWebhookProcessed(idempotencyKey)
+
+          const jobData: WebhookJobData = {
+            eventId: idempotencyKey,
+            webhookId,
+            topic,
+            domain,
+            apiVersion,
+            subTopic,
+            body,
+            triggeredAt,
+            receivedAt,
+          }
+
+          await webhookQueue.add(topic, jobData, {
+            jobId: idempotencyKey,
+          })
+
+          logger.info('[webhook] Queued for processing', {
+            type: 'webhook',
+            eventId: idempotencyKey,
+            topic,
+            domain,
+          })
+        },
       }
 
-      await webhookQueue.add(topic, jobData, {
-        jobId: idempotencyKey,
-      })
-
-      logger.info('[webhook] Queued for processing', {
-        type: 'webhook',
-        eventId,
-        webhookId,
-        topic,
-        domain,
-      })
-
-      // Respond immediately per best practices
-      return new Response('OK', { status: 200 })
+      return next({ context })
     } catch (error) {
+      if (error instanceof Response) {
+        throw error
+      }
+
       logger.error('[webhook] Middleware error', {
         type: 'webhook',
         eventId,
@@ -100,8 +135,7 @@ export const webhookMiddleware = createMiddleware({ type: 'request' }).server(
         error: error instanceof Error ? error.message : 'Unknown error',
       })
 
-      // Return 500 to trigger Shopify retry
-      return new Response('Error processing webhook', { status: 500 })
+      throw new Response('Error processing webhook', { status: 500 })
     }
   }
 )

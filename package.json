@@ -42,6 +42,7 @@
     "drizzle-zod": "^0.8.3",
     "graphql-config": "^5.1.5",
     "ioredis": "^5.9.2",
+    "isbot": "^5.1.33",
     "pg": "^8.17.2",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
