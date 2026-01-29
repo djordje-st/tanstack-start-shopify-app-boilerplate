@@ -10,6 +10,7 @@ import {
   rejectBotRequest,
   respondToInvalidSessionToken,
   upsertSessionAndShop,
+  withTokenExchangeLock,
 } from '~/utils/shopify/auth'
 import { shopifyApp } from '~/utils/shopify/app'
 
@@ -72,26 +73,54 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
         }
       }
 
-      // No valid session, perform token exchange
-      logger.debug('[auth] Performing token exchange', {
-        type: 'auth',
-        shop: shopDomain,
-      })
+      // No valid session, perform token exchange with lock to prevent race conditions
+      const { session, shop: shopData } = await withTokenExchangeLock(
+        shopDomain,
+        async () => {
+          // Double-check if session was created by another request while we waited
+          const sessionIdToCheck = shopifyApp.session.getOfflineId(shopDomain)
 
-      const accessToken = await shopifyApp.auth.tokenExchange({
-        shop: shopDomain,
-        sessionToken: encodedSessionToken,
-        requestedTokenType: RequestedTokenType.OfflineAccessToken,
-      })
+          if (sessionIdToCheck) {
+            const existingAfterLock =
+              await getValidSessionWithShop(sessionIdToCheck)
 
-      const newSession = new Session(accessToken.session)
-      const { session, shop: shopData } = await upsertSessionAndShop(newSession)
+            if (existingAfterLock) {
+              logger.debug(
+                '[auth] Session found after acquiring lock, skipping token exchange',
+                {
+                  type: 'auth',
+                  shop: shopDomain,
+                  sessionId: existingAfterLock.session.id,
+                }
+              )
 
-      logger.info('[auth] New session created via token exchange', {
-        type: 'auth',
-        shop: shopDomain,
-        sessionId: session.id,
-      })
+              return existingAfterLock
+            }
+          }
+
+          logger.debug('[auth] Performing token exchange', {
+            type: 'auth',
+            shop: shopDomain,
+          })
+
+          const accessToken = await shopifyApp.auth.tokenExchange({
+            shop: shopDomain,
+            sessionToken: encodedSessionToken,
+            requestedTokenType: RequestedTokenType.OfflineAccessToken,
+          })
+
+          const newSession = new Session(accessToken.session)
+          const result = await upsertSessionAndShop(newSession)
+
+          logger.info('[auth] New session created via token exchange', {
+            type: 'auth',
+            shop: shopDomain,
+            sessionId: result.session.id,
+          })
+
+          return result
+        }
+      )
 
       return next({
         context: {

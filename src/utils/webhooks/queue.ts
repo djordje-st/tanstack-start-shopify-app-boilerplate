@@ -1,6 +1,6 @@
 import { Queue, Worker } from 'bullmq'
 import { eq } from 'drizzle-orm'
-import type { Job } from 'bullmq';
+import type { Job } from 'bullmq'
 import { db } from '~/db'
 import { sessionsTable, shopsTable } from '~/db/schema'
 import { redis } from '~/utils/redis'
@@ -44,7 +44,7 @@ async function processWebhook(job: Job<WebhookJobData>) {
   const { topic, domain } = job.data
 
   switch (topic) {
-    case 'app/uninstalled':
+    case 'APP_UNINSTALLED':
       await db.delete(sessionsTable).where(eq(sessionsTable.shop, domain))
 
       logger.info('[webhook] App uninstalled, sessions deleted', {
@@ -54,7 +54,7 @@ async function processWebhook(job: Job<WebhookJobData>) {
 
       break
 
-    case 'shop/redact':
+    case 'SHOP_REDACT':
       await db.delete(sessionsTable).where(eq(sessionsTable.shop, domain))
       await db.delete(shopsTable).where(eq(shopsTable.domain, domain))
 
@@ -65,7 +65,7 @@ async function processWebhook(job: Job<WebhookJobData>) {
 
       break
 
-    case 'customers/data_request':
+    case 'CUSTOMERS_DATA_REQUEST':
       // This app doesn't store customer data
       logger.info('[webhook] Customer data request - no data stored', {
         type: 'webhook',
@@ -74,7 +74,7 @@ async function processWebhook(job: Job<WebhookJobData>) {
 
       break
 
-    case 'customers/redact':
+    case 'CUSTOMERS_REDACT':
       // This app doesn't store customer data
       logger.info('[webhook] Customer redact - no data stored', {
         type: 'webhook',

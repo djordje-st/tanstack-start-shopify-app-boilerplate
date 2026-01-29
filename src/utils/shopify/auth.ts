@@ -30,12 +30,72 @@ export function rejectBotRequest(request: Request): void {
     return
   }
 
-  if (isbot(userAgent)) {
+  if (isbot(userAgent) || userAgent.includes('DuckDuckBot')) {
     logger.debug('[auth] Rejecting bot request', {
       type: 'auth',
       userAgent: userAgent.slice(0, 100),
     })
     throw new Response(undefined, { status: 410, statusText: 'Gone' })
+  }
+}
+
+/**
+ * In-memory lock map to prevent concurrent token exchanges for the same shop.
+ * When multiple parallel requests arrive for the same shop, only the first one
+ * performs the token exchange while others wait for it to complete.
+ */
+const tokenExchangeLocks = new Map<
+  string,
+  Promise<{
+    session: SelectSession
+    shop: SelectShop
+  }>
+>()
+
+/**
+ * Execute a function with a per-shop lock to prevent race conditions
+ * during token exchange. If a lock exists for the shop, wait for it
+ * to complete and return the result.
+ */
+export async function withTokenExchangeLock(
+  shopDomain: string,
+  fn: () => Promise<{ session: SelectSession; shop: SelectShop }>
+): Promise<{ session: SelectSession; shop: SelectShop }> {
+  const existingLock = tokenExchangeLocks.get(shopDomain)
+
+  if (existingLock) {
+    logger.debug('[auth] Waiting for existing token exchange to complete', {
+      type: 'auth',
+      shop: shopDomain,
+    })
+
+    try {
+      // Wait for the existing token exchange to complete
+      return await existingLock
+    } catch {
+      // If the existing exchange failed, we'll try again below
+      // by checking if a new lock was set or proceeding with our own
+      const newLock = tokenExchangeLocks.get(shopDomain)
+
+      if (newLock && newLock !== existingLock) {
+        return await newLock
+      }
+    }
+  }
+
+  // Create a new lock promise
+  const lockPromise = fn()
+  tokenExchangeLocks.set(shopDomain, lockPromise)
+
+  try {
+    const result = await lockPromise
+
+    return result
+  } finally {
+    // Only delete if it's still our lock (another request might have set a new one)
+    if (tokenExchangeLocks.get(shopDomain) === lockPromise) {
+      tokenExchangeLocks.delete(shopDomain)
+    }
   }
 }
 
@@ -307,8 +367,9 @@ export async function upsertSessionAndShop(session: Session): Promise<{
       accessToken: session.accessToken,
     })
     .onConflictDoUpdate({
-      target: sessionsTable.id,
+      target: sessionsTable.shop,
       set: {
+        id: session.id,
         state: session.state,
         isOnline: session.isOnline,
         scope: session.scope,

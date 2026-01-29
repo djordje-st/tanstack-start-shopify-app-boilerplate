@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.2.0]
+
+### Added
+
+- **Token exchange lock mechanism** (`src/utils/shopify/auth.ts`) - Prevents race conditions when multiple parallel requests arrive for the same shop:
+  - In-memory lock map tracks ongoing token exchanges per shop
+  - `withTokenExchangeLock` function ensures only one request performs token exchange while others wait
+  - Double-checks for existing sessions after acquiring lock to avoid redundant exchanges
+
+- **Server entry point** (`src/server.ts`) - Centralized server initialization with background worker support:
+  - Initializes webhook and reconciliation workers in production
+  - Skips worker initialization in development to avoid hot reload issues
+
+### Changed
+
+- **Improved bot detection** (`src/utils/shopify/auth.ts`) - Added explicit DuckDuckBot detection alongside isbot library
+
+- **Session upsert conflict handling** (`src/utils/shopify/auth.ts`) - Changed conflict target from session ID to shop domain for more reliable session updates
+
+- **Webhook topic format** (`src/utils/webhooks/queue.ts`) - Updated webhook topics to use Shopify's enum format:
+  - `app/uninstalled` → `APP_UNINSTALLED`
+  - `shop/redact` → `SHOP_REDACT`
+  - `customers/data_request` → `CUSTOMERS_DATA_REQUEST`
+  - `customers/redact` → `CUSTOMERS_REDACT`
+
 ## [2.1.0]
 
 ### Added
