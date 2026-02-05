@@ -66,8 +66,9 @@ async function processWebhook(job: Job<WebhookJobData>) {
       break
 
     case 'CUSTOMERS_DATA_REQUEST':
-      // This app doesn't store customer data
-      logger.info('[webhook] Customer data request - no data stored', {
+      // add your logic for customer data request
+
+      logger.info('[webhook] Customer data request', {
         type: 'webhook',
         domain,
       })
@@ -75,8 +76,9 @@ async function processWebhook(job: Job<WebhookJobData>) {
       break
 
     case 'CUSTOMERS_REDACT':
-      // This app doesn't store customer data
-      logger.info('[webhook] Customer redact - no data stored', {
+      // add your logic for customer redact
+
+      logger.info('[webhook] Customer redact', {
         type: 'webhook',
         domain,
       })

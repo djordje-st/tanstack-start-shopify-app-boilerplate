@@ -1,7 +1,42 @@
 import { createMiddleware, createStart } from '@tanstack/react-start'
+import { isbot } from 'isbot'
 import logger from '~/utils/logger'
 
 const SERVER_FN_PREFIX = '/_serverFn/'
+
+/**
+ * User agents that should be allowed through even if detected as bots
+ * (e.g., Shopify POS/Mobile apps, Shopify webhooks)
+ */
+const ALLOWED_BOT_PATTERNS = [
+  /^Shopify POS\//,
+  /^Shopify Mobile\//,
+  /^Shopify-Captain-Hook$/,
+  /^node$/, // Mantle webhooks use "node" as user agent
+]
+
+/**
+ * Reject requests from bots to prevent unnecessary processing
+ * Returns true if the request should be rejected
+ */
+function shouldRejectBot(userAgent: string, request: Request): boolean {
+  if (!userAgent) return false
+
+  // Allow Shopify agents through
+  if (ALLOWED_BOT_PATTERNS.some(pattern => pattern.test(userAgent))) {
+    return false
+  }
+
+  // Allow requests with valid auth headers (e.g., HTTPie for testing)
+  const hasAuthHeader = request.headers.has('authorization')
+
+  if (hasAuthHeader) {
+    return false
+  }
+
+  // Check if it's a bot using isbot library
+  return isbot(userAgent)
+}
 
 /**
  * Resolves the display path for logging
@@ -90,7 +125,19 @@ function isSuspiciousPath(pathname: string): boolean {
  */
 const requestLoggingMiddleware = createMiddleware().server(
   async ({ next, request }) => {
-    if (process.env.NODE_ENV === 'development') {
+    const userAgent = request.headers.get('user-agent') ?? ''
+
+    // Reject bots early, before any processing
+    if (shouldRejectBot(userAgent, request)) {
+      logger.warn('[http] Rejecting bot request', {
+        type: 'http',
+        userAgent: userAgent.slice(0, 120),
+      })
+
+      throw new Response(null, { status: 410, statusText: 'Gone' })
+    }
+
+    if (import.meta.env.DEV) {
       return await next()
     }
 
@@ -101,7 +148,6 @@ const requestLoggingMiddleware = createMiddleware().server(
     // Extract request metadata
     const contentType = headers.get('content-type')
     const contentLength = headers.get('content-length')
-    const userAgent = headers.get('user-agent')
     const queryParamCount = Array.from(url.searchParams.keys()).length
     const logPath = resolveLogPath(url.pathname)
 

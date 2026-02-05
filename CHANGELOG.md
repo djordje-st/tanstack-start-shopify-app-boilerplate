@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.3.0]
+
+### Changed
+
+- **Move bot detection to global request middleware** (`src/start.ts`) - Bot rejection now happens at the earliest entry point before any auth or processing logic runs:
+  - Configurable allowed bot patterns for Shopify POS, Mobile, Captain-Hook, and Mantle webhook user agents
+  - Requests with `Authorization` headers bypass bot detection (e.g., testing tools)
+  - Uses `isbot` library for detection with a `410 Gone` response for rejected bots
+
+- **Simplify auth middleware** (`src/utils/middleware/auth-middleware.ts`) - Removed `rejectBotRequest` call since bot filtering is now handled globally
+
+- **Use Vite env check** (`src/start.ts`) - Replaced `process.env.NODE_ENV === 'development'` with `import.meta.env.DEV`
+
+- **Update webhook queue comments** (`src/utils/webhooks/queue.ts`) - `CUSTOMERS_DATA_REQUEST` and `CUSTOMERS_REDACT` handlers now have placeholder comments for custom logic
+
+### Removed
+
+- **`rejectBotRequest` function** (`src/utils/shopify/auth.ts`) - Bot detection consolidated into global middleware
+- **Verbose session debug logging** (`src/utils/middleware/auth-middleware.ts`) - Removed "Using existing session" debug log
+
 ## [2.2.0]
 
 ### Added

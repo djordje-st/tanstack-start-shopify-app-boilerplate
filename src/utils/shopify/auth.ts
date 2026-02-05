@@ -1,43 +1,12 @@
 import { AuthScopes, Session } from '@shopify/shopify-api'
 import { redirect } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
-import { isbot } from 'isbot'
 import type { SelectSession, SelectShop } from '~/db/schema'
 import { db } from '~/db'
 import { sessionsTable, shopsTable } from '~/db/schema'
-import { SHOP_QUERY } from '~/graphql/admin/queries'
 import logger from '~/utils/logger'
 import { apiVersion, shopifyApp } from '~/utils/shopify/app'
-
-const SHOPIFY_USER_AGENTS = [/Shopify POS\//, /Shopify Mobile\//]
-
-export const AUTH_HEADERS = {
-  REAUTH_URL: 'X-Shopify-API-Request-Failure-Reauthorize-Url',
-  RETRY_INVALID_SESSION: 'X-Shopify-Retry-Invalid-Session-Request',
-} as const
-
-/**
- * Reject requests from bots to prevent unnecessary auth flows
- * Allows Shopify POS and Mobile apps through
- */
-export function rejectBotRequest(request: Request): void {
-  const userAgent = request.headers.get('User-Agent') ?? ''
-
-  if (SHOPIFY_USER_AGENTS.some(agent => agent.test(userAgent))) {
-    logger.debug('[auth] Request is from Shopify agent, allowing', {
-      type: 'auth',
-    })
-    return
-  }
-
-  if (isbot(userAgent) || userAgent.includes('DuckDuckBot')) {
-    logger.debug('[auth] Rejecting bot request', {
-      type: 'auth',
-      userAgent: userAgent.slice(0, 100),
-    })
-    throw new Response(undefined, { status: 410, statusText: 'Gone' })
-  }
-}
+import { SHOP_QUERY } from '~/graphql/admin/queries'
 
 /**
  * In-memory lock map to prevent concurrent token exchanges for the same shop.
@@ -98,6 +67,11 @@ export async function withTokenExchangeLock(
     }
   }
 }
+
+export const AUTH_HEADERS = {
+  REAUTH_URL: 'X-Shopify-API-Request-Failure-Reauthorize-Url',
+  RETRY_INVALID_SESSION: 'X-Shopify-Retry-Invalid-Session-Request',
+} as const
 
 /**
  * Handle CORS preflight OPTIONS requests

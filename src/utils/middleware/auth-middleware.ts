@@ -7,7 +7,6 @@ import {
   getSessionToken,
   getShopFromRequest,
   getValidSessionWithShop,
-  rejectBotRequest,
   respondToInvalidSessionToken,
   upsertSessionAndShop,
   withTokenExchangeLock,
@@ -17,10 +16,6 @@ import { shopifyApp } from '~/utils/shopify/app'
 export const authMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
     const request = getRequest()
-
-    // Reject bots to prevent unnecessary auth flows
-    rejectBotRequest(request)
-
     const shop = getShopFromRequest(request)
 
     try {
@@ -31,6 +26,7 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
           type: 'auth',
           shop,
         })
+
         respondToInvalidSessionToken(request)
       }
 
@@ -57,12 +53,6 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
         const existing = await getValidSessionWithShop(sessionId)
 
         if (existing) {
-          logger.debug('[auth] Using existing session', {
-            type: 'auth',
-            shop: shopDomain,
-            sessionId,
-          })
-
           return next({
             context: {
               session: existing.session,
