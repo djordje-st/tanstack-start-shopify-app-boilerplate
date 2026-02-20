@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
 
 /**
  * Session Token Bounce Page
@@ -14,7 +13,7 @@ import { createServerFn } from '@tanstack/react-start'
  * @see https://shopify.dev/docs/apps/build/authentication-authorization/set-embedded-app-authorization
  */
 
-const getBouncePageHtml = createServerFn({ method: 'GET' }).handler(() => {
+function getBouncePageHtml(): string {
   return `
     <!DOCTYPE html>
     <html>
@@ -77,19 +76,21 @@ const getBouncePageHtml = createServerFn({ method: 'GET' }).handler(() => {
       </body>
     </html>
   `
-})
+}
 
 export const Route = createFileRoute('/session-token-bounce')({
-  loader: async () => {
-    const html = await getBouncePageHtml()
+  server: {
+    handlers: {
+      GET: () => {
+        const html = getBouncePageHtml()
 
-    throw new Response(html, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
+        return new Response(html, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+          },
+        })
       },
-    })
+    },
   },
-
-  component: () => null,
 })

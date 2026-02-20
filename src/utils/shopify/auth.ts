@@ -102,61 +102,6 @@ export function handleOptionsRequest(
 }
 
 /**
- * Add CORS headers to a response for cross-origin requests
- */
-export function addCorsHeaders(
-  response: Response,
-  request: Request,
-  additionalHeaders: Array<string> = []
-): Response {
-  const origin = request.headers.get('Origin')
-  const appUrl = shopifyApp.config.hostName
-
-  if (!origin || origin.includes(appUrl)) {
-    return response
-  }
-
-  const corsHeaders = new Set([
-    'Authorization',
-    'Content-Type',
-    ...additionalHeaders,
-  ])
-
-  response.headers.set('Access-Control-Allow-Origin', '*')
-  response.headers.set(
-    'Access-Control-Allow-Headers',
-    [...corsHeaders].join(', ')
-  )
-  response.headers.set('Access-Control-Expose-Headers', AUTH_HEADERS.REAUTH_URL)
-
-  return response
-}
-
-/**
- * Add security headers for document responses in embedded apps
- */
-export function addDocumentHeaders(
-  headers: Headers,
-  shopDomain?: string
-): void {
-  const cdnUrl = 'https://cdn.shopify.com'
-  const appBridgeUrl = 'https://cdn.shopify.com/shopifycloud/app-bridge.js'
-
-  if (shopDomain) {
-    headers.set(
-      'Link',
-      `<${cdnUrl}>; rel="preconnect", <${appBridgeUrl}>; rel="preload"; as="script"`
-    )
-    headers.set(
-      'Content-Security-Policy',
-      `frame-ancestors https://${shopDomain} https://admin.shopify.com https://*.spin.dev;`
-    )
-  } else {
-    headers.set('Content-Security-Policy', `frame-ancestors 'none';`)
-  }
-}
-
-/**
  * Extract session token from Authorization header
  */
 export function getSessionTokenFromHeader(request: Request): string | null {

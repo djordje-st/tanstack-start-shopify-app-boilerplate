@@ -71,9 +71,6 @@ REDIS_URL=redis://localhost:6379
 # Shopify App Credentials (from Partner Dashboard)
 SHOPIFY_API_KEY=your_api_key
 SHOPIFY_API_SECRET=your_api_secret
-
-# Optional
-LOG_TO_FILE=true
 ```
 
 ### 4. Database Setup
@@ -109,23 +106,23 @@ pnpm app:dev
 
 ## Available Scripts
 
-| Script | Description |
-|--------|-------------|
-| `pnpm dev` | Start dev server with Shopify CLI |
-| `pnpm app:dev` | Start Vite dev server only |
-| `pnpm app:build` | Build for production |
-| `pnpm app:start` | Start production server |
-| `pnpm db:push` | Push schema changes to database |
-| `pnpm db:generate` | Generate migration files |
-| `pnpm db:migrate` | Run migrations |
-| `pnpm db:studio` | Open Drizzle Studio |
-| `pnpm docker:up` | Start Docker services |
-| `pnpm docker:down` | Stop Docker services |
-| `pnpm docker:destroy` | Remove Docker volumes |
-| `pnpm graphql:generate` | Generate GraphQL types |
-| `pnpm typecheck` | Run TypeScript checks |
-| `pnpm lint` | Run ESLint |
-| `pnpm format` | Format with Prettier |
+| Script                  | Description                       |
+| ----------------------- | --------------------------------- |
+| `pnpm dev`              | Start dev server with Shopify CLI |
+| `pnpm app:dev`          | Start Vite dev server only        |
+| `pnpm app:build`        | Build for production              |
+| `pnpm app:start`        | Start production server           |
+| `pnpm db:push`          | Push schema changes to database   |
+| `pnpm db:generate`      | Generate migration files          |
+| `pnpm db:migrate`       | Run migrations                    |
+| `pnpm db:studio`        | Open Drizzle Studio               |
+| `pnpm docker:up`        | Start Docker services             |
+| `pnpm docker:down`      | Stop Docker services              |
+| `pnpm docker:destroy`   | Remove Docker volumes             |
+| `pnpm graphql:generate` | Generate GraphQL types            |
+| `pnpm typecheck`        | Run TypeScript checks             |
+| `pnpm lint`             | Run ESLint                        |
+| `pnpm format`           | Format with Prettier              |
 
 ## Project Structure
 

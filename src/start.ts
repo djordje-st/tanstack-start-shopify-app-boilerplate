@@ -2,8 +2,6 @@ import { createMiddleware, createStart } from '@tanstack/react-start'
 import { isbot } from 'isbot'
 import logger from '~/utils/logger'
 
-const SERVER_FN_PREFIX = '/_serverFn/'
-
 /**
  * User agents that should be allowed through even if detected as bots
  * (e.g., Shopify POS/Mobile apps, Shopify webhooks)
@@ -36,33 +34,6 @@ function shouldRejectBot(userAgent: string, request: Request): boolean {
 
   // Check if it's a bot using isbot library
   return isbot(userAgent)
-}
-
-/**
- * Resolves the display path for logging
- * For server functions, decodes the base64 payload to extract the function name
- */
-function resolveLogPath(pathname: string): string {
-  if (!pathname.startsWith(SERVER_FN_PREFIX)) {
-    return pathname
-  }
-
-  try {
-    const encoded = pathname.slice(SERVER_FN_PREFIX.length)
-    const decoded = Buffer.from(encoded, 'base64').toString('utf-8')
-    const payload = JSON.parse(decoded) as { file?: string; export?: string }
-
-    // Extract function name from export like "getShopAuth_createServerFn_handler"
-    if (payload.export) {
-      const fnName = payload.export.replace(/_createServerFn_handler$/, '')
-
-      return `/_serverFn/${fnName}`
-    }
-
-    return pathname
-  } catch {
-    return pathname
-  }
 }
 
 /**
@@ -116,6 +87,7 @@ function isSuspiciousPath(pathname: string): boolean {
   ]
 
   const lowerPath = pathname.toLowerCase()
+
   return suspiciousPatterns.some(pattern => lowerPath.includes(pattern))
 }
 
@@ -149,7 +121,6 @@ const requestLoggingMiddleware = createMiddleware().server(
     const contentType = headers.get('content-type')
     const contentLength = headers.get('content-length')
     const queryParamCount = Array.from(url.searchParams.keys()).length
-    const logPath = resolveLogPath(url.pathname)
 
     // Security-relevant headers
     const clientIp = getClientIp(headers)
@@ -174,7 +145,7 @@ const requestLoggingMiddleware = createMiddleware().server(
       logger[logLevel](`[http] request_completed`, {
         type: 'http',
         method: request.method,
-        path: logPath,
+        path: url.pathname,
         status,
         duration_ms: duration,
         slow: isSlow.toString(),
@@ -195,7 +166,7 @@ const requestLoggingMiddleware = createMiddleware().server(
     } catch (error) {
       const duration = Date.now() - startTime
 
-      logger.error(`[http] ${request.method} ${logPath} failed`, {
+      logger.error(`[http] ${request.method} ${url.pathname} failed`, {
         type: 'http',
         duration: `${duration}ms`,
         error: error instanceof Error ? error.message : 'Unknown error',

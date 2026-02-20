@@ -4,6 +4,7 @@
 .nitro
 .output
 .tanstack
+dist
 package-lock.yaml
 routeTree.gen.ts
 src/types/generated

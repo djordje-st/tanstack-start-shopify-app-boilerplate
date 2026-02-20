@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.4.0]
+
+### Changed
+
+- **Update runtime and dependency stack** (`.nvmrc`, `package.json`, `pnpm-lock.yaml`) - Bumped Node.js to `24.13.0`, updated pnpm to `10.30.1`, and refreshed package versions across app/runtime/tooling dependencies.
+
+- **Ignore build output for formatting** (`.prettierignore`) - Added `dist` to ignored paths.
+
+- **Refactor session token bounce route response handling** (`src/routes/session-token-bounce.tsx`) - Replaced `loader`-thrown HTML responses with explicit `server.handlers.GET` response handling.
+
+- **Simplify HTTP path logging** (`src/start.ts`) - Removed server function pathname decoding and now log raw request pathnames directly.
+
+- **Refresh setup docs** (`README.md`) - Removed optional `LOG_TO_FILE` environment variable from setup example and cleaned script table formatting.
+
+### Removed
+
+- **Embedded header helper utilities** (`src/utils/shopify/auth.ts`) - Removed `addCorsHeaders` and `addDocumentHeaders`.
+
 ## [2.3.0]
 
 ### Changed
