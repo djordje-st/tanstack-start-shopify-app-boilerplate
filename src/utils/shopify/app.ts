@@ -15,6 +15,7 @@ export const shopifyApp = shopifyApi({
   hostName: process.env.SHOPIFY_APP_URL!.split('//')[1],
   isEmbeddedApp: true,
   future: {
+    expiringOfflineAccessTokens: true,
     customerAddressDefaultFix: true,
     unstable_managedPricingSupport: true,
   },

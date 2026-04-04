@@ -1,11 +1,13 @@
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import { defineConfig } from 'vite'
-import tsConfigPaths from 'vite-tsconfig-paths'
 import viteReact from '@vitejs/plugin-react'
 import { nitroV2Plugin } from '@tanstack/nitro-v2-vite-plugin'
 
 export default defineConfig(config => {
   return {
+    resolve: {
+      tsconfigPaths: true,
+    },
     server: {
       port: 8080,
       allowedHosts: ['.trycloudflare.com'], // add your production domain here
@@ -14,15 +16,13 @@ export default defineConfig(config => {
       sourcemap: config.mode === 'development',
     },
     plugins: [
-      tsConfigPaths({
-        projects: ['./tsconfig.json'],
-      }),
       nitroV2Plugin({
         preset: 'node-server',
         compatibilityDate: '2025-10-04',
       }),
       tanstackStart(),
       viteReact({
+        // @ts-ignore - babel-plugin-react-compiler is not typed
         babel: {
           plugins: ['babel-plugin-react-compiler'],
         },

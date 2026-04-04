@@ -1,8 +1,11 @@
 import { eq } from 'drizzle-orm'
 import { db } from '~/db'
-import { sessionsTable, shopsTable } from '~/db/schema'
+import { shopsTable } from '~/db/schema'
 import logger from '~/utils/logger'
-import { createAdminApiGraphqlClient } from '~/utils/shopify/auth'
+import {
+  createAdminApiGraphqlClient,
+  getOfflineSessionWithShop,
+} from '~/utils/shopify/auth'
 import { shopifyApp } from '~/utils/shopify/app'
 
 function searchParamsToQuery(
@@ -46,24 +49,28 @@ export async function verifyShopifyProxyRequest(
 }
 
 export async function fetchShopAndSession(shopDomain: string) {
-  const result = await db
-    .select({
-      shop: shopsTable,
-      session: sessionsTable,
-    })
+  const validSession = await getOfflineSessionWithShop(shopDomain)
+
+  if (validSession) {
+    return validSession
+  }
+
+  const [shop] = await db
+    .select()
     .from(shopsTable)
-    .leftJoin(sessionsTable, eq(shopsTable.domain, sessionsTable.shop))
     .where(eq(shopsTable.domain, shopDomain))
     .limit(1)
 
   return {
-    shop: result[0]?.shop ?? null,
-    session: result[0]?.session ?? null,
+    shop: shop ?? null,
+    session: null,
   }
 }
 
 export function createProxyContext(
-  session: NonNullable<Awaited<ReturnType<typeof fetchShopAndSession>>['session']>,
+  session: NonNullable<
+    Awaited<ReturnType<typeof fetchShopAndSession>>['session']
+  >,
   shop: NonNullable<Awaited<ReturnType<typeof fetchShopAndSession>>['shop']>
 ) {
   if (!session.accessToken) {

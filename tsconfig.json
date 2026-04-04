@@ -3,6 +3,7 @@
 
   "compilerOptions": {
     "target": "ES2022",
+    "esModuleInterop": true,
     "jsx": "react-jsx",
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -19,13 +20,13 @@
     "noEmit": true,
 
     /* Linting */
+    "isolatedModules": true,
     "skipLibCheck": true,
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "baseUrl": ".",
     "paths": {
       "~/*": ["./src/*"]
     }

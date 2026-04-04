@@ -68,7 +68,13 @@ export const webhookMiddleware = createMiddleware({ type: 'request' }).server(
         throw new Response('Invalid webhook', { status: 401 })
       }
 
-      const { webhookId, topic, domain, apiVersion, subTopic } = validation
+      const { topic, domain, apiVersion } = validation
+      const subTopic = request.headers.get('x-shopify-sub-topic') ?? undefined
+      const webhookIdFromHeader = request.headers.get('x-shopify-webhook-id')
+      const webhookId =
+        webhookIdFromHeader ??
+        eventId ??
+        `generated-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
       // Use eventId for duplicate detection, fall back to webhookId
       const idempotencyKey = eventId ?? webhookId

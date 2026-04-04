@@ -1,4 +1,4 @@
-import { AuthScopes, Session } from '@shopify/shopify-api'
+import { AuthScopes, RequestedTokenType, Session } from '@shopify/shopify-api'
 import { redirect } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import type { SelectSession, SelectShop } from '~/db/schema'
@@ -9,42 +9,43 @@ import { apiVersion, shopifyApp } from '~/utils/shopify/app'
 import { SHOP_QUERY } from '~/graphql/admin/queries'
 
 /**
- * In-memory lock map to prevent concurrent token exchanges for the same shop.
+ * In-memory lock map to prevent concurrent session updates for the same shop.
  * When multiple parallel requests arrive for the same shop, only the first one
- * performs the token exchange while others wait for it to complete.
+ * performs the token exchange / migration / refresh while others wait.
  */
-const tokenExchangeLocks = new Map<
-  string,
-  Promise<{
-    session: SelectSession
-    shop: SelectShop
-  }>
->()
+const sessionLocks = new Map<string, Promise<unknown>>()
+
+const OFFLINE_TOKEN_EXPIRY_BUFFER_MS = 60 * 1000
+
+type SessionWithShop = {
+  session: SelectSession
+  shop: SelectShop
+}
+
+type GetOfflineSessionOptions = {
+  sessionToken?: string
+}
 
 /**
- * Execute a function with a per-shop lock to prevent race conditions
- * during token exchange. If a lock exists for the shop, wait for it
- * to complete and return the result.
+ * Execute a function with a per-shop lock to prevent race conditions while
+ * updating sessions. If a lock exists for the shop, wait for it to complete.
  */
-export async function withTokenExchangeLock(
+async function withSessionLock<T>(
   shopDomain: string,
-  fn: () => Promise<{ session: SelectSession; shop: SelectShop }>
-): Promise<{ session: SelectSession; shop: SelectShop }> {
-  const existingLock = tokenExchangeLocks.get(shopDomain)
+  fn: () => Promise<T>
+): Promise<T> {
+  const existingLock = sessionLocks.get(shopDomain) as Promise<T> | undefined
 
   if (existingLock) {
-    logger.debug('[auth] Waiting for existing token exchange to complete', {
+    logger.debug('[auth] Waiting for existing session update to complete', {
       type: 'auth',
       shop: shopDomain,
     })
 
     try {
-      // Wait for the existing token exchange to complete
       return await existingLock
     } catch {
-      // If the existing exchange failed, we'll try again below
-      // by checking if a new lock was set or proceeding with our own
-      const newLock = tokenExchangeLocks.get(shopDomain)
+      const newLock = sessionLocks.get(shopDomain) as Promise<T> | undefined
 
       if (newLock && newLock !== existingLock) {
         return await newLock
@@ -54,7 +55,7 @@ export async function withTokenExchangeLock(
 
   // Create a new lock promise
   const lockPromise = fn()
-  tokenExchangeLocks.set(shopDomain, lockPromise)
+  sessionLocks.set(shopDomain, lockPromise)
 
   try {
     const result = await lockPromise
@@ -62,8 +63,8 @@ export async function withTokenExchangeLock(
     return result
   } finally {
     // Only delete if it's still our lock (another request might have set a new one)
-    if (tokenExchangeLocks.get(shopDomain) === lockPromise) {
-      tokenExchangeLocks.delete(shopDomain)
+    if (sessionLocks.get(shopDomain) === lockPromise) {
+      sessionLocks.delete(shopDomain)
     }
   }
 }
@@ -207,9 +208,9 @@ export function createAdminApiGraphqlClient(session: Session | SelectSession) {
   })
 }
 
-export async function getValidSessionWithShop(
-  sessionId: string
-): Promise<{ session: SelectSession; shop: SelectShop } | null> {
+async function loadSessionWithShop(
+  shopDomain: string
+): Promise<SessionWithShop | null> {
   const [result] = await db
     .select({
       session: sessionsTable,
@@ -217,20 +218,165 @@ export async function getValidSessionWithShop(
     })
     .from(sessionsTable)
     .innerJoin(shopsTable, eq(sessionsTable.shop, shopsTable.domain))
-    .where(eq(sessionsTable.id, sessionId))
+    .where(eq(sessionsTable.shop, shopDomain))
 
   if (!result) {
-    return null
-  }
-
-  if (!isSessionValid(result.session)) {
     return null
   }
 
   return result
 }
 
-function isSessionValid(session: SelectSession): boolean {
+function isDateExpired(
+  value: Date | null | undefined,
+  bufferMs: number = 0
+): boolean {
+  if (!value) {
+    return false
+  }
+
+  return value.getTime() - bufferMs <= Date.now()
+}
+
+export async function getOfflineSessionWithShop(
+  shopDomain: string,
+  options: GetOfflineSessionOptions = {}
+): Promise<SessionWithShop | null> {
+  const { sessionToken } = options
+  const result = await loadSessionWithShop(shopDomain)
+
+  if (result && isSessionStructurallyValid(result.session)) {
+    const needsMigration =
+      !result.session.isOnline &&
+      Boolean(result.session.accessToken) &&
+      !result.session.refreshToken &&
+      !result.session.expires
+
+    const needsRefresh =
+      !result.session.isOnline &&
+      Boolean(result.session.expires) &&
+      isDateExpired(result.session.expires, OFFLINE_TOKEN_EXPIRY_BUFFER_MS)
+
+    if (!needsMigration && !needsRefresh) {
+      return result
+    }
+  } else if (!sessionToken) {
+    return null
+  }
+
+  return withSessionLock(shopDomain, async () => {
+    const latest = await loadSessionWithShop(shopDomain)
+
+    if (latest && isSessionStructurallyValid(latest.session)) {
+      const needsMigration =
+        !latest.session.isOnline &&
+        Boolean(latest.session.accessToken) &&
+        !latest.session.refreshToken &&
+        !latest.session.expires
+
+      const needsRefresh =
+        !latest.session.isOnline &&
+        Boolean(latest.session.expires) &&
+        isDateExpired(latest.session.expires, OFFLINE_TOKEN_EXPIRY_BUFFER_MS)
+
+      if (!needsMigration && !needsRefresh) {
+        return latest
+      }
+
+      if (needsMigration && latest.session.accessToken) {
+        try {
+          const { session } = await shopifyApp.auth.migrateToExpiringToken({
+            shop: shopDomain,
+            nonExpiringOfflineAccessToken: latest.session.accessToken,
+          })
+
+          const migrated = await upsertSessionAndShop(session)
+
+          logger.info('[auth] Migrated offline session to expiring token', {
+            type: 'auth',
+            shopDomain,
+            sessionId: migrated.session.id,
+          })
+
+          return migrated
+        } catch (error) {
+          logger.error('[auth] Failed to migrate offline session', {
+            type: 'auth',
+            shopDomain,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          })
+        }
+      }
+
+      if (needsRefresh) {
+        if (!latest.session.refreshToken) {
+          logger.warn('[auth] Offline session expired without refresh token', {
+            type: 'auth',
+            shopDomain,
+          })
+        } else if (
+          isDateExpired(
+            latest.session.refreshTokenExpires,
+            OFFLINE_TOKEN_EXPIRY_BUFFER_MS
+          )
+        ) {
+          logger.warn('[auth] Offline session refresh token expired', {
+            type: 'auth',
+            shopDomain,
+          })
+        } else {
+          try {
+            const { session } = await shopifyApp.auth.refreshToken({
+              shop: shopDomain,
+              refreshToken: latest.session.refreshToken,
+            })
+
+            const refreshed = await upsertSessionAndShop(session)
+
+            logger.info('[auth] Refreshed expiring offline token', {
+              type: 'auth',
+              shopDomain,
+              sessionId: refreshed.session.id,
+            })
+
+            return refreshed
+          } catch (error) {
+            logger.error('[auth] Failed to refresh expiring offline token', {
+              type: 'auth',
+              shopDomain,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            })
+          }
+        }
+      }
+    }
+
+    if (!sessionToken) {
+      return null
+    }
+
+    const tokenExchange = await shopifyApp.auth.tokenExchange({
+      shop: shopDomain,
+      sessionToken,
+      requestedTokenType: RequestedTokenType.OfflineAccessToken,
+      expiring: true,
+    })
+
+    const created = await upsertSessionAndShop(
+      new Session(tokenExchange.session)
+    )
+
+    logger.info('[auth] New session created via token exchange', {
+      type: 'auth',
+      shop: shopDomain,
+      sessionId: created.session.id,
+    })
+
+    return created
+  })
+}
+
+function isSessionStructurallyValid(session: SelectSession): boolean {
   const requiredScopes = shopifyApp.config.scopes
   const sessionScopes = new AuthScopes(session.scope ?? undefined)
 
@@ -270,7 +416,7 @@ function isSessionValid(session: SelectSession): boolean {
   return true
 }
 
-export async function upsertSessionAndShop(session: Session): Promise<{
+async function upsertSessionAndShop(session: Session): Promise<{
   session: SelectSession
   shop: SelectShop
 }> {
@@ -284,6 +430,8 @@ export async function upsertSessionAndShop(session: Session): Promise<{
       scope: session.scope,
       expires: session.expires,
       accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+      refreshTokenExpires: session.refreshTokenExpires,
     })
     .onConflictDoUpdate({
       target: sessionsTable.shop,
@@ -294,6 +442,8 @@ export async function upsertSessionAndShop(session: Session): Promise<{
         scope: session.scope,
         expires: session.expires,
         accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        refreshTokenExpires: session.refreshTokenExpires,
       },
     })
     .returning()

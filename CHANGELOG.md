@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.5.0]
+
+### Changed
+
+- **Support expiring offline session handling** (`src/utils/middleware/auth-middleware.ts`, `src/utils/shopify/auth.ts`, `src/utils/shopify/proxy.ts`) - Centralized offline session loading so auth and proxy flows now reuse the same logic to return existing sessions, migrate legacy non-expiring offline tokens, refresh expiring offline tokens, and create new expiring offline sessions via token exchange when needed.
+
+### Fixed
+
+- **Webhook validation type compatibility** (`src/utils/middleware/webhook-middleware.ts`) - Updated webhook context creation to handle both Shopify webhook validation result variants by deriving the identifier from `webhookId` or `eventId` and only reading `subTopic` when present.
+
 ## [2.4.0]
 
 ### Changed
