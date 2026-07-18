@@ -1,14 +1,14 @@
 /* eslint-disable eslint-comments/disable-enable-pair */
 /* eslint-disable eslint-comments/no-unlimited-disable */
 /* eslint-disable */
-import type * as AdminAPI from '@shopify/admin-api-client';
+import type * as AdminTypes from './admin.types.js';
 
-export type GetShopQueryVariables = AdminAPI.Exact<{ [key: string]: never; }>;
+export type GetShopQueryVariables = AdminTypes.Exact<{ [key: string]: never; }>;
 
 
 export type GetShopQuery = { shop: (
-    Pick<AdminAPI.Shop, 'id' | 'name' | 'email' | 'ianaTimezone' | 'currencyCode' | 'myshopifyDomain'>
-    & { plan: Pick<AdminAPI.ShopPlan, 'publicDisplayName'> }
+    Pick<AdminTypes.Shop, 'id' | 'name' | 'email' | 'ianaTimezone' | 'currencyCode' | 'myshopifyDomain'>
+    & { plan: Pick<AdminTypes.ShopPlan, 'publicDisplayName'> }
   ) };
 
 interface GeneratedQueryTypes {
@@ -17,10 +17,8 @@ interface GeneratedQueryTypes {
 
 interface GeneratedMutationTypes {
 }
-
-                    declare module '@shopify/admin-api-client' {
-                      type InputMaybe<T> = AdminAPI.InputMaybe<T>
-                      interface AdminQueries extends GeneratedQueryTypes {}
-                      interface AdminMutations extends GeneratedMutationTypes {}
-                    }
-                  
+declare module '@shopify/admin-api-client' {
+  type InputMaybe<T> = AdminTypes.InputMaybe<T>;
+  interface AdminQueries extends GeneratedQueryTypes {}
+  interface AdminMutations extends GeneratedMutationTypes {}
+}

@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0]
+
+### Added
+
+- **Server function CSRF protection** (`src/start.ts`) - Added TanStack Start's CSRF middleware for server function requests.
+
+### Changed
+
+- **Migrate the server runtime to Nitro 3** (`src/server.ts`, `vite.config.ts`, `package.json`) - Replaced the legacy Nitro v2 plugin with Nitro 3, adopted `srvx` responses, and updated the Vite React Compiler integration and runtime dependencies.
+
+- **Update to Shopify Admin API 2026-07** (`.graphqlrc.ts`, `shopify.app.example.toml`, `src/utils/shopify/app.ts`, `src/types/generated/`) - Updated the app and webhook API versions and switched Admin GraphQL code generation to Shopify's local schema and generated type output.
+
+- **Overhaul embedded app authentication** (`src/utils/middleware/auth-middleware.ts`, `src/utils/shopify/auth.ts`) - Added embedded-app redirects, stricter bearer token handling, Shopify retry responses, and single-flight refresh or exchange of expiring offline sessions with a five-minute expiry buffer.
+
+- **Harden the session token bounce flow** (`src/routes/session-token-bounce.tsx`, `src/utils/shopify/session-token-bounce.server.ts`) - Moved bounce-page generation into a server-only helper and added no-store caching and shop-specific frame ancestor restrictions.
+
+- **Process Shopify webhooks directly** (`src/routes/api/webhooks/app/`, `src/utils/middleware/webhook-middleware.ts`) - Webhook routes now validate the raw HMAC-signed request and perform uninstall and shop-redact cleanup synchronously.
+
+- **Rename the public Shopify API key variable** (`.env.example`, `src/routes/__root.tsx`, `src/utils/shopify/app.ts`) - Replaced `SHOPIFY_API_KEY` with `VITE_SHOPIFY_API_KEY`; existing environments must be updated.
+
+- **Update local PostgreSQL to 18.4** (`docker-compose.yml`) - Upgraded the development image and changed its data mount to PostgreSQL 18's expected `/var/lib/postgresql` path; existing development volumes require migration or recreation.
+
+### Removed
+
+- **Redis-backed queues, idempotency, reconciliation, and database caching** (`docker-compose.yml`, `src/utils/`) - Removed Redis, BullMQ workers, webhook deduplication and retries, reconciliation jobs, and the Drizzle Redis cache along with their dependencies and environment variables.
+
+- **Storefront GraphQL code generation** (`.graphqlrc.ts`, `src/graphql/storefront/queries.ts`, `package.json`) - Removed the unused Storefront project, placeholder query, client dependency, and project-specific generation scripts.
+
 ## [2.5.0]
 
 ### Changed

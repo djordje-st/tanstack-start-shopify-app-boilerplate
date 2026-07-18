@@ -6,8 +6,8 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/react-router'
-import { DefaultCatchBoundary } from '~/components/default-catch-boundary'
-import { NotFound } from '~/components/not-found'
+import { DefaultCatchBoundary } from '#/components/default-catch-boundary'
+import { NotFound } from '#/components/not-found'
 
 export const Route = createRootRouteWithContext()({
   head: () => ({
@@ -36,7 +36,7 @@ export const Route = createRootRouteWithContext()({
       },
       {
         name: 'shopify-api-key',
-        content: process.env.SHOPIFY_API_KEY!,
+        content: process.env.VITE_SHOPIFY_API_KEY!,
       },
     ],
     scripts: [

@@ -1,10 +1,10 @@
 import { createMiddleware } from '@tanstack/react-start'
-import logger from '~/utils/logger'
+import logger from '#/utils/logger'
+import { createAdminApiGraphqlClient } from '#/utils/shopify/auth'
 import {
-  createProxyContext,
   fetchShopAndSession,
   verifyShopifyProxyRequest,
-} from '~/utils/shopify/proxy'
+} from '#/utils/shopify/proxy'
 
 export const proxyMiddleware = createMiddleware({ type: 'request' }).server(
   async ({ request, next }) => {
@@ -45,9 +45,13 @@ export const proxyMiddleware = createMiddleware({ type: 'request' }).server(
         )
       }
 
-      const context = createProxyContext(session, shop)
-
-      return next({ context })
+      return next({
+        context: {
+          session,
+          shop,
+          admin: createAdminApiGraphqlClient(session),
+        },
+      })
     } catch (error) {
       if (error instanceof Response) {
         throw error

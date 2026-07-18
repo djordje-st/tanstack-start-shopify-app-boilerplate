@@ -1,6 +1,14 @@
-import { createMiddleware, createStart } from '@tanstack/react-start'
+import {
+  createCsrfMiddleware,
+  createMiddleware,
+  createStart,
+} from '@tanstack/react-start'
 import { isbot } from 'isbot'
-import logger from '~/utils/logger'
+import logger from '#/utils/logger'
+
+const csrfMiddleware = createCsrfMiddleware({
+  filter: ctx => ctx.handlerType === 'serverFn',
+})
 
 /**
  * User agents that should be allowed through even if detected as bots
@@ -54,6 +62,20 @@ function getClientIp(headers: Headers): string {
   if (xRealIp) return xRealIp
 
   return 'unknown'
+}
+
+function getRefererForLogging(headers: Headers): string | null {
+  const referer = headers.get('referer')
+
+  if (!referer) return null
+
+  try {
+    const url = new URL(referer)
+
+    return `${url.origin}${url.pathname}`
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -124,7 +146,7 @@ const requestLoggingMiddleware = createMiddleware().server(
 
     // Security-relevant headers
     const clientIp = getClientIp(headers)
-    const referer = headers.get('referer')
+    const referer = getRefererForLogging(headers)
     const origin = headers.get('origin')
     const cfCountry = headers.get('cf-ipcountry') // Cloudflare country code
     const cfRay = headers.get('cf-ray') // Cloudflare request ID
@@ -190,5 +212,5 @@ const requestLoggingMiddleware = createMiddleware().server(
 )
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [requestLoggingMiddleware],
+  requestMiddleware: [requestLoggingMiddleware, csrfMiddleware],
 }))

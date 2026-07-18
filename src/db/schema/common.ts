@@ -8,6 +8,7 @@ export const timestamps = {
   })
     .defaultNow()
     .notNull(),
+
   updatedAt: timestamp('updated_at', {
     mode: 'date',
     precision: 3,

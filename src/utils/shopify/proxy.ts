@@ -1,12 +1,9 @@
 import { eq } from 'drizzle-orm'
-import { db } from '~/db'
-import { shopsTable } from '~/db/schema'
-import logger from '~/utils/logger'
-import {
-  createAdminApiGraphqlClient,
-  getOfflineSessionWithShop,
-} from '~/utils/shopify/auth'
-import { shopifyApp } from '~/utils/shopify/app'
+import { db } from '#/db'
+import { shopsTable } from '#/db/schema'
+import logger from '#/utils/logger'
+import { getOfflineSessionWithShop } from '#/utils/shopify/auth'
+import { shopifyApp } from '#/utils/shopify/app'
 
 function searchParamsToQuery(
   searchParams: URLSearchParams
@@ -66,25 +63,6 @@ export async function fetchShopAndSession(shopDomain: string) {
     session: null,
   }
 }
-
-export function createProxyContext(
-  session: NonNullable<
-    Awaited<ReturnType<typeof fetchShopAndSession>>['session']
-  >,
-  shop: NonNullable<Awaited<ReturnType<typeof fetchShopAndSession>>['shop']>
-) {
-  if (!session.accessToken) {
-    throw new Error('Session missing access token')
-  }
-
-  return {
-    session,
-    shop,
-    admin: createAdminApiGraphqlClient(session),
-  }
-}
-
-export type ProxyContext = ReturnType<typeof createProxyContext>
 
 /**
  * Handle errors in proxy endpoint handlers

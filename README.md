@@ -20,15 +20,13 @@ A modern Shopify app boilerplate built with TanStack Start and TypeScript.
 
 - **[Drizzle ORM](https://orm.drizzle.team)** - Type-safe database operations with migrations
 - **PostgreSQL 16** - Primary database
-- **[Redis](https://redis.io)** - Session storage and job queue
-- **[BullMQ](https://docs.bullmq.io)** - Background job processing
 - **[Winston](https://github.com/winstonjs/winston)** - Structured logging
 
 ### Shopify Integration
 
-- **Admin API 2026-01** - Latest GraphQL API with generated types
+- **Admin API 2026-07** - Latest GraphQL API with generated types
 - **App Proxy Authentication** - Secure frontend-backend communication
-- **Webhook Queue** - Background webhook processing with idempotency
+- **Webhook Authentication** - HMAC-validated webhook endpoint processing
 
 ## Features
 
@@ -36,8 +34,7 @@ A modern Shopify app boilerplate built with TanStack Start and TypeScript.
 - Session Management - Persistent sessions with database storage
 - GraphQL Integration - Type-safe Shopify Admin API queries
 - App Proxy Support - Authenticated frontend API calls
-- Background Jobs - Async processing with BullMQ
-- Webhook Handlers - Queued processing with duplicate detection
+- Webhook Handlers - Direct HMAC-validated endpoint processing
 - Request Logging - Comprehensive HTTP logging with security monitoring
 - Theme Extensions - Extensible theme app extensions
 
@@ -57,7 +54,7 @@ pnpm install
 pnpm docker:up
 ```
 
-This starts PostgreSQL and Redis containers for local development.
+This starts a PostgreSQL container for local development.
 
 ### 3. Environment Configuration
 
@@ -66,10 +63,9 @@ Create a `.env` file with the following variables:
 ```bash
 # Database
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lookie_dev
-REDIS_URL=redis://localhost:6379
 
 # Shopify App Credentials (from Partner Dashboard)
-SHOPIFY_API_KEY=your_api_key
+VITE_SHOPIFY_API_KEY=your_api_key
 SHOPIFY_API_SECRET=your_api_secret
 ```
 
@@ -138,10 +134,8 @@ src/
 ├── types/               # TypeScript definitions
 │   └── generated/       # Auto-generated types
 └── utils/
-    ├── jobs/            # Background job handlers
     ├── middleware/      # Request middleware
-    ├── shopify/         # Shopify utilities
-    └── webhooks/        # Webhook processing
+    └── shopify/         # Shopify utilities
 ```
 
 ## Troubleshooting
@@ -157,11 +151,6 @@ src/
 - Run `pnpm docker:up` to start PostgreSQL
 - Verify `DATABASE_URL` format: `postgresql://user:password@host:port/database`
 - Run `pnpm db:push` to ensure schema is up to date
-
-### Redis connection failed
-
-- Run `pnpm docker:up` to start Redis
-- Verify `REDIS_URL` format: `redis://localhost:6379`
 
 ### GraphQL queries failing
 

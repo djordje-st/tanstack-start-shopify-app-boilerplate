@@ -1,12 +1,4 @@
-**/build
-**/public
-.shopify
-.nitro
-.output
-.tanstack
-dist
-package-lock.yaml
-routeTree.gen.ts
-src/types/generated
-db/migrations/**
-extensions/assets/**.min.**
+pnpm-lock.yaml
+src/db/migrations/
+src/routeTree.gen.ts
+src/types/generated/

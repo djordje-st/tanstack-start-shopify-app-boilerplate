@@ -9,20 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SessionTokenBounceRouteImport } from './routes/session-token-bounce'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SessionTokenBounceRouteImport } from './routes/session-token-bounce'
 import { Route as ApiProxyEndpointRouteImport } from './routes/api/proxy-endpoint'
-import { Route as ApiWebhooksAppUninstalledRouteImport } from './routes/api/webhooks/app/uninstalled'
 import { Route as ApiWebhooksAppComplianceRouteImport } from './routes/api/webhooks/app/compliance'
+import { Route as ApiWebhooksAppUninstalledRouteImport } from './routes/api/webhooks/app/uninstalled'
 
-const SessionTokenBounceRoute = SessionTokenBounceRouteImport.update({
-  id: '/session-token-bounce',
-  path: '/session-token-bounce',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessionTokenBounceRoute = SessionTokenBounceRouteImport.update({
+  id: '/session-token-bounce',
+  path: '/session-token-bounce',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiProxyEndpointRoute = ApiProxyEndpointRouteImport.update({
@@ -30,16 +30,16 @@ const ApiProxyEndpointRoute = ApiProxyEndpointRouteImport.update({
   path: '/api/proxy-endpoint',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiWebhooksAppUninstalledRoute =
-  ApiWebhooksAppUninstalledRouteImport.update({
-    id: '/api/webhooks/app/uninstalled',
-    path: '/api/webhooks/app/uninstalled',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiWebhooksAppComplianceRoute =
   ApiWebhooksAppComplianceRouteImport.update({
     id: '/api/webhooks/app/compliance',
     path: '/api/webhooks/app/compliance',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiWebhooksAppUninstalledRoute =
+  ApiWebhooksAppUninstalledRouteImport.update({
+    id: '/api/webhooks/app/uninstalled',
+    path: '/api/webhooks/app/uninstalled',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -99,18 +99,18 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/session-token-bounce': {
-      id: '/session-token-bounce'
-      path: '/session-token-bounce'
-      fullPath: '/session-token-bounce'
-      preLoaderRoute: typeof SessionTokenBounceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/session-token-bounce': {
+      id: '/session-token-bounce'
+      path: '/session-token-bounce'
+      fullPath: '/session-token-bounce'
+      preLoaderRoute: typeof SessionTokenBounceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/proxy-endpoint': {
@@ -120,18 +120,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiProxyEndpointRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/webhooks/app/uninstalled': {
-      id: '/api/webhooks/app/uninstalled'
-      path: '/api/webhooks/app/uninstalled'
-      fullPath: '/api/webhooks/app/uninstalled'
-      preLoaderRoute: typeof ApiWebhooksAppUninstalledRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/webhooks/app/compliance': {
       id: '/api/webhooks/app/compliance'
       path: '/api/webhooks/app/compliance'
       fullPath: '/api/webhooks/app/compliance'
       preLoaderRoute: typeof ApiWebhooksAppComplianceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/app/uninstalled': {
+      id: '/api/webhooks/app/uninstalled'
+      path: '/api/webhooks/app/uninstalled'
+      fullPath: '/api/webhooks/app/uninstalled'
+      preLoaderRoute: typeof ApiWebhooksAppUninstalledRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
