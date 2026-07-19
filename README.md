@@ -19,7 +19,7 @@ A modern Shopify app boilerplate built with TanStack Start and TypeScript.
 ### Backend Stack
 
 - **[Drizzle ORM](https://orm.drizzle.team)** - Type-safe database operations with migrations
-- **PostgreSQL 16** - Primary database
+- **PostgreSQL 18.4** - Primary database
 - **[Winston](https://github.com/winstonjs/winston)** - Structured logging
 
 ### Shopify Integration
@@ -62,7 +62,7 @@ Create a `.env` file with the following variables:
 
 ```bash
 # Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lookie_dev
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/shopify_tanstack_dev
 
 # Shopify App Credentials (from Partner Dashboard)
 VITE_SHOPIFY_API_KEY=your_api_key
@@ -77,9 +77,6 @@ pnpm db:push
 
 # Or use migrations
 pnpm db:generate && pnpm db:migrate
-
-# Optional: Open Drizzle Studio
-pnpm db:studio
 ```
 
 ### 5. Link Your Shopify App
@@ -95,9 +92,6 @@ This creates/links a Shopify app and generates the `shopify.app.toml` configurat
 ```bash
 # Start with Shopify CLI (recommended)
 pnpm dev
-
-# Or start only the app
-pnpm app:dev
 ```
 
 ## Available Scripts
@@ -165,7 +159,7 @@ src/
 - [TanStack Start Documentation](https://tanstack.com/start)
 - [Drizzle ORM Documentation](https://orm.drizzle.team)
 - [Shopify CLI Documentation](https://shopify.dev/docs/apps/tools/cli)
-- [App Bridge UI Components](https://shopify.dev/docs/api/app-home/using-polaris-components)
+- [App Bridge UI Components](https://shopify.dev/docs/api/app-home/web-components)
 
 ## Contributing
 
