@@ -4,7 +4,7 @@ import {
   createStart,
 } from '@tanstack/react-start'
 import { isbot } from 'isbot'
-import logger from '#/utils/logger'
+import logger, { serializeError, withLogContext } from '#/utils/logger'
 
 const csrfMiddleware = createCsrfMiddleware({
   filter: ctx => ctx.handlerType === 'serverFn',
@@ -113,101 +113,91 @@ function isSuspiciousPath(pathname: string): boolean {
   return suspiciousPatterns.some(pattern => lowerPath.includes(pattern))
 }
 
+function getRequestOutcome(status: number): string {
+  if (status >= 500) return 'error'
+  if (status >= 400) return 'rejected'
+  if (status >= 300) return 'redirect'
+  return 'success'
+}
+
 /**
  * Global request logging middleware
  * Logs comprehensive request/response details for performance monitoring and troubleshooting
  */
 const requestLoggingMiddleware = createMiddleware().server(
   async ({ next, request }) => {
-    const userAgent = request.headers.get('user-agent') ?? ''
-
-    // Reject bots early, before any processing
-    if (shouldRejectBot(userAgent, request)) {
-      logger.warn('[http] Rejecting bot request', {
-        type: 'http',
-        userAgent: userAgent.slice(0, 120),
-      })
-
-      throw new Response(null, { status: 410, statusText: 'Gone' })
-    }
-
-    if (import.meta.env.DEV) {
-      return await next()
-    }
-
     const url = new URL(request.url)
     const startTime = Date.now()
     const headers = request.headers
-
-    // Extract request metadata
+    const userAgent = request.headers.get('user-agent') ?? ''
     const contentType = headers.get('content-type')
     const contentLength = headers.get('content-length')
     const queryParamCount = Array.from(url.searchParams.keys()).length
-
-    // Security-relevant headers
     const clientIp = getClientIp(headers)
     const referer = getRefererForLogging(headers)
     const origin = headers.get('origin')
-    const cfCountry = headers.get('cf-ipcountry') // Cloudflare country code
-    const cfRay = headers.get('cf-ray') // Cloudflare request ID
-
-    // Check if this looks like a vulnerability scan
+    const cfCountry = headers.get('cf-ipcountry')
+    const cfRay = headers.get('cf-ray')
     const suspicious = isSuspiciousPath(url.pathname)
-
-    try {
-      const result = await next()
-      const duration = Date.now() - startTime
-      const status = result.response?.status ?? 200
-      const isSlow = duration > 1000
-
-      // Determine log level based on status, duration, and suspiciousness
-      const logLevel =
-        status >= 500 ? 'error' : status >= 400 || suspicious ? 'warn' : 'info'
-
-      logger[logLevel](`[http] request_completed`, {
-        type: 'http',
-        method: request.method,
-        path: url.pathname,
-        status,
-        duration_ms: duration,
-        slow: isSlow.toString(),
-        queryParams: queryParamCount,
-        contentType: contentType?.split(';')[0],
-        contentLength: parseInt(contentLength ?? '0', 10),
-        // Security fields
-        ip: clientIp,
-        country: cfCountry,
-        userAgent: userAgent?.slice(0, 120),
-        referer: referer?.slice(0, 200),
-        origin,
-        cfRay,
-        suspicious: suspicious.toString(),
-      })
-
-      return result
-    } catch (error) {
-      const duration = Date.now() - startTime
-
-      logger.error(`[http] ${request.method} ${url.pathname} failed`, {
-        type: 'http',
-        duration: `${duration}ms`,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        queryParams: queryParamCount,
-        contentType: contentType?.split(';')[0],
-        contentLength: parseInt(contentLength ?? '0', 10),
-        // Security fields
-        ip: clientIp,
-        country: cfCountry,
-        userAgent: userAgent?.slice(0, 120),
-        referer: referer?.slice(0, 200),
-        origin,
-        cfRay,
-        suspicious: suspicious.toString(),
-      })
-
-      throw error
+    const event: Record<string, unknown> = {
+      event: 'http_request',
+      request_id:
+        headers.get('x-request-id') ??
+        headers.get('x-shopify-webhook-id') ??
+        cfRay ??
+        crypto.randomUUID(),
+      method: request.method,
+      path: url.pathname,
+      query_param_count: queryParamCount,
+      content_type: contentType?.split(';')[0],
+      content_length: parseInt(contentLength ?? '0', 10),
+      client_ip: clientIp,
+      country: cfCountry,
+      user_agent: userAgent.slice(0, 120),
+      referer: referer?.slice(0, 200),
+      origin,
+      cloudflare_ray: cfRay,
+      suspicious,
+      shop_domain: headers.get('x-shopify-shop-domain'),
+      shopify_webhook_id: headers.get('x-shopify-webhook-id'),
+      shopify_topic: headers.get('x-shopify-topic'),
+      status_code: 500,
+      outcome: 'error',
     }
+
+    return withLogContext(event, async () => {
+      try {
+        if (shouldRejectBot(userAgent, request)) {
+          event.status_code = 410
+          event.outcome = 'rejected_bot'
+          throw new Response(null, { status: 410, statusText: 'Gone' })
+        }
+
+        const result = await next()
+        const status = result.response?.status ?? 200
+        event.status_code = status
+        event.outcome = getRequestOutcome(status)
+        return result
+      } catch (error) {
+        if (error instanceof Response) {
+          event.status_code = error.status
+          if (event.outcome !== 'rejected_bot') {
+            event.outcome = getRequestOutcome(error.status)
+          }
+        } else {
+          event.error = serializeError(error)
+        }
+
+        throw error
+      } finally {
+        event.duration_ms = Date.now() - startTime
+        event.slow = Number(event.duration_ms) > 1000
+
+        if (Number(event.status_code) >= 500)
+          logger.error('http_request', event)
+        else logger.info('http_request', event)
+      }
+    })
   }
 )
 

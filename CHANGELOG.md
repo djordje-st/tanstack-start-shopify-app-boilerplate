@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0]
+
+### Added
+
+- **Canonical request logging** (`src/start.ts`, `src/utils/logger.ts`) - Each request now emits one context-rich NDJSON event with request, response, security, Shopify, shop, error, performance, and deployment metadata.
+- **Sensitive-field redaction** (`src/utils/logger.ts`) - Application logs recursively remove common secret, token, password, and email fields before output.
+
+### Changed
+
+- **Replace Winston with LogTape** (`package.json`, `src/utils/logger.ts`) - Migrated to a single structured LogTape logger with separate application and diagnostic sinks and consistent `info` and `error` levels.
+- **Integrate Shopify SDK logging** (`src/utils/shopify/app.ts`) - Shopify SDK messages now enrich the active request event or emit a standalone structured event when no request context exists.
+- **Consolidate request context** (`src/utils/middleware/`, `src/utils/shopify/`, `src/routes/api/webhooks/app/`) - Authentication, app proxy, and webhook flows now enrich the canonical request event instead of emitting scattered log lines.
+
 ## [3.0.0]
 
 ### Added

@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { sessionsTable } from '#/db/schema'
-import logger from '#/utils/logger'
+import { addLogContext } from '#/utils/logger'
 import { webhookMiddleware } from '#/utils/middleware/webhook-middleware'
 
 /**
@@ -15,11 +15,7 @@ export const Route = createFileRoute('/api/webhooks/app/uninstalled')({
     handlers: {
       POST: async ({ context }) => {
         if (context.topic !== 'APP_UNINSTALLED') {
-          logger.warn('[webhook] Unhandled topic', {
-            type: 'webhook',
-            topic: context.topic,
-            domain: context.domain,
-          })
+          addLogContext({ webhook_action: 'unhandled' })
 
           return new Response('OK', { status: 200 })
         }
@@ -28,10 +24,7 @@ export const Route = createFileRoute('/api/webhooks/app/uninstalled')({
           .delete(sessionsTable)
           .where(eq(sessionsTable.shop, context.domain))
 
-        logger.info('[webhook] App uninstalled, sessions deleted', {
-          type: 'webhook',
-          domain: context.domain,
-        })
+        addLogContext({ webhook_action: 'app_uninstalled' })
 
         return new Response('OK', { status: 200 })
       },

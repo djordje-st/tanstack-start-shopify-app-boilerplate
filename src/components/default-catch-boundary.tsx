@@ -2,8 +2,6 @@ import { ErrorComponent, Link } from '@tanstack/react-router'
 import type { ErrorComponentProps } from '@tanstack/react-router'
 
 export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
-  console.error('DefaultCatchBoundary Error:', error)
-
   return (
     <s-page inlineSize="small">
       <s-section>
@@ -17,11 +15,11 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
             </s-paragraph>
           </s-banner>
 
-          {process.env.NODE_ENV === 'development' && (
+          {import.meta.env.DEV ? (
             <s-box>
               <ErrorComponent error={error} />
             </s-box>
-          )}
+          ) : null}
 
           <Link to="/">
             <s-button variant="primary">Home</s-button>

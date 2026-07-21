@@ -1,5 +1,6 @@
 import { createMiddleware } from '@tanstack/react-start'
 import { getRequest } from '@tanstack/react-start/server'
+import { addLogContext } from '#/utils/logger'
 import {
   createAdminApiGraphqlClient,
   getOfflineSessionWithShop,
@@ -84,6 +85,17 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
     if (!result) {
       rejectInvalidSessionToken(request)
     }
+
+    addLogContext({
+      shop_id: result.shop.id,
+      shop_domain: result.shop.domain,
+      shop_plan: result.shop.plan,
+      shop_currency: result.shop.currency,
+      shop_account_age_days: Math.floor(
+        (Date.now() - result.shop.createdAt.getTime()) / 86_400_000
+      ),
+      auth_outcome: 'authenticated',
+    })
 
     return next({
       context: {

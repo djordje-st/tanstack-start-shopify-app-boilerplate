@@ -1,5 +1,5 @@
 import { createMiddleware } from '@tanstack/react-start'
-import logger from '#/utils/logger'
+import { addLogContext, serializeError } from '#/utils/logger'
 import { createAdminApiGraphqlClient } from '#/utils/shopify/auth'
 import {
   fetchShopAndSession,
@@ -10,12 +10,11 @@ export const proxyMiddleware = createMiddleware({ type: 'request' }).server(
   async ({ request, next }) => {
     const url = new URL(request.url)
     const shopDomain = url.searchParams.get('shop')
+    addLogContext({ shop_domain: shopDomain, request_type: 'app_proxy' })
 
     if (!(await verifyShopifyProxyRequest(request))) {
-      logger.warn('[proxy] Invalid proxy signature', {
-        type: 'proxy',
-        shopDomain,
-        path: url.pathname,
+      addLogContext({
+        proxy_validation: 'invalid',
       })
 
       throw Response.json(
@@ -45,6 +44,14 @@ export const proxyMiddleware = createMiddleware({ type: 'request' }).server(
         )
       }
 
+      addLogContext({
+        proxy_validation: 'valid',
+        shop_id: shop.id,
+        shop_domain: shop.domain,
+        shop_plan: shop.plan,
+        shop_currency: shop.currency,
+      })
+
       return next({
         context: {
           session,
@@ -57,10 +64,8 @@ export const proxyMiddleware = createMiddleware({ type: 'request' }).server(
         throw error
       }
 
-      logger.error('[proxy] Middleware error', {
-        type: 'proxy',
-        shopDomain,
-        error: error instanceof Error ? error.message : 'Unknown error',
+      addLogContext({
+        proxy_error: serializeError(error),
       })
 
       throw Response.json({ error: 'Internal server error' }, { status: 500 })

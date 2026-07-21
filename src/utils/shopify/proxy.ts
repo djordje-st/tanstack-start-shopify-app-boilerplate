@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '#/db'
 import { shopsTable } from '#/db/schema'
-import logger from '#/utils/logger'
+import { addLogContext, serializeError } from '#/utils/logger'
 import { getOfflineSessionWithShop } from '#/utils/shopify/auth'
 import { shopifyApp } from '#/utils/shopify/app'
 
@@ -36,9 +36,9 @@ export async function verifyShopifyProxyRequest(
 
     return await shopifyApp.utils.validateHmac(query, { signator: 'appProxy' })
   } catch (error) {
-    logger.warn('[proxy] HMAC validation failed', {
-      type: 'proxy',
-      error: error instanceof Error ? error.message : 'Unknown error',
+    addLogContext({
+      proxy_validation: 'error',
+      proxy_validation_error: serializeError(error),
     })
 
     return false
@@ -77,14 +77,13 @@ export function handleProxyError(
     throw error
   }
 
-  const message = error instanceof Error ? error.message : 'Unknown error'
+  const serializedError = serializeError(error)
 
-  logger.error('[proxy] Handler error', {
-    type: 'proxy',
-    shopId: context.shop?.id,
-    shopDomain: context.shop?.domain,
-    error: message,
+  addLogContext({
+    shop_id: context.shop?.id,
+    shop_domain: context.shop?.domain,
+    proxy_handler_error: serializedError,
   })
 
-  return Response.json({ error: message }, { status: 500 })
+  return Response.json({ error: serializedError.message }, { status: 500 })
 }

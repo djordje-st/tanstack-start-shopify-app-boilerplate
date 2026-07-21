@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm'
 import type { SelectSession, SelectShop } from '#/db/schema'
 import { db } from '#/db'
 import { sessionsTable, shopsTable } from '#/db/schema'
-import logger from '#/utils/logger'
+import { addLogContext, serializeError } from '#/utils/logger'
 import { shopifyApp } from '#/utils/shopify/app'
 
 const EXPIRY_BUFFER_MS = 5 * 60 * 1000
@@ -131,10 +131,10 @@ export async function getOfflineSessionWithShop(
 
         return saveSession(refreshed.session)
       } catch (error) {
-        logger.warn('[auth] Offline token refresh failed', {
-          type: 'auth',
-          shop: shopDomain,
-          error: error instanceof Error ? error.message : 'Unknown error',
+        addLogContext({
+          auth_token_refresh: 'failed',
+          auth_error: serializeError(error),
+          shop_domain: shopDomain,
         })
       }
     }

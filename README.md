@@ -20,7 +20,7 @@ A modern Shopify app boilerplate built with TanStack Start and TypeScript.
 
 - **[Drizzle ORM](https://orm.drizzle.team)** - Type-safe database operations with migrations
 - **PostgreSQL 18.4** - Primary database
-- **[Winston](https://github.com/winstonjs/winston)** - Structured logging
+- **[LogTape](https://logtape.org/)** - Structured, redacted NDJSON logging
 
 ### Shopify Integration
 
@@ -35,8 +35,16 @@ A modern Shopify app boilerplate built with TanStack Start and TypeScript.
 - GraphQL Integration - Type-safe Shopify Admin API queries
 - App Proxy Support - Authenticated frontend API calls
 - Webhook Handlers - Direct HMAC-validated endpoint processing
-- Request Logging - Comprehensive HTTP logging with security monitoring
+- Request Logging - One context-rich canonical event per request
 - Theme Extensions - Extensible theme app extensions
+
+### Logging
+
+Server logs use LogTape and emit one structured `http_request` event when each request completes. The event accumulates request and response details, timing, security signals, Shopify authentication, app proxy and webhook context, shop plan and currency, and deployment metadata.
+
+Shopify SDK messages enrich the active request event. Messages outside a request are emitted as standalone `shopify_sdk` events. Common sensitive fields such as secrets, tokens, passwords, and email addresses are recursively removed before output.
+
+Deployment context is detected automatically from common `COMMIT_SHA`, Railway, Vercel, `SERVICE_VERSION`, `REGION`, `INSTANCE_ID`, and `HOSTNAME` environment variables.
 
 ## Installation
 
