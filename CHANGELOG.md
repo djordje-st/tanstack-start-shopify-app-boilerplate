@@ -30,6 +30,8 @@ All notable changes to this project will be documented in this file.
 
 - **Storefront GraphQL code generation** (`.graphqlrc.ts`, `src/graphql/storefront/queries.ts`, `package.json`) - Removed the unused Storefront project, placeholder query, client dependency, and project-specific generation scripts.
 
+- **Redundant GraphQL codegen dependencies** (`package.json`, `pnpm-lock.yaml`) - Removed direct dependencies already supplied by the GraphQL Code Generator CLI and Shopify API codegen preset.
+
 ## [2.5.0]
 
 ### Changed
