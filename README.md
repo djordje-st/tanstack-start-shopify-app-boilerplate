@@ -79,6 +79,9 @@ VITE_SHOPIFY_API_KEY=your_api_key
 SHOPIFY_API_SECRET=your_api_secret
 ```
 
+Set `VITE_SHOPIFY_API_KEY` before building the app. Vite includes this public key
+in the browser bundle. Keep `SHOPIFY_API_SECRET` on the server.
+
 ### 4. Database Setup
 
 ```bash

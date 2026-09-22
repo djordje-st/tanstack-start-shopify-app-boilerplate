@@ -64,5 +64,5 @@ export function handleProxyError(
     proxy_handler_error: serializedError,
   })
 
-  return Response.json({ error: serializedError.message }, { status: 500 })
+  return Response.json({ error: 'Internal server error' }, { status: 500 })
 }

@@ -25,7 +25,7 @@ export const Route = createRootRouteWithContext()({
       },
       {
         name: 'shopify-api-key',
-        content: process.env.VITE_SHOPIFY_API_KEY!,
+        content: import.meta.env.VITE_SHOPIFY_API_KEY,
       },
     ],
     scripts: [
@@ -38,25 +38,20 @@ export const Route = createRootRouteWithContext()({
       },
     ],
   }),
-  errorComponent: props => {
-    return (
-      <RootDocument>
-        <DefaultCatchBoundary {...props} />
-      </RootDocument>
-    )
-  },
+  errorComponent: DefaultCatchBoundary,
   pendingComponent: () => (
     <s-page>
       <s-spinner />
     </s-page>
   ),
   notFoundComponent: () => <NotFound />,
-  shellComponent: RootComponent,
+  shellComponent: RootDocument,
+  component: RootComponent,
 })
 
 function RootComponent() {
   return (
-    <RootDocument>
+    <>
       <s-app-nav>
         <Link to="/" rel="home">
           Home
@@ -64,7 +59,7 @@ function RootComponent() {
       </s-app-nav>
 
       <Outlet />
-    </RootDocument>
+    </>
   )
 }
 

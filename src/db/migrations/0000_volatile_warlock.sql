@@ -24,7 +24,3 @@ CREATE TABLE "shop" (
 	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "shop_domain_unique" UNIQUE("domain")
 );
---> statement-breakpoint
-CREATE INDEX "session_id_idx" ON "session" USING btree ("id");--> statement-breakpoint
-CREATE INDEX "session_shop_idx" ON "session" USING btree ("shop");--> statement-breakpoint
-CREATE INDEX "shop_domain_idx" ON "shop" USING btree ("domain");

@@ -14,7 +14,13 @@ export const Route = createFileRoute('/api/proxy-endpoint')({
 
           const shopResponse = await admin.request(SHOP_QUERY)
 
-          return Response.json(shopResponse.data)
+          const shop = shopResponse.data?.shop
+
+          return Response.json({
+            shop: shop
+              ? { name: shop.name, myshopifyDomain: shop.myshopifyDomain }
+              : null,
+          })
         } catch (error) {
           return handleProxyError(error, context)
         }

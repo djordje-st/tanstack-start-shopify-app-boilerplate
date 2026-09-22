@@ -1,5 +1,5 @@
 {
-  "id": "8822e297-23e1-4d06-a673-7085d322c3c5",
+  "id": "090dcb3d-e82e-41bb-b890-91bbcf133c9f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -70,38 +70,7 @@
           "notNull": false
         }
       },
-      "indexes": {
-        "session_id_idx": {
-          "name": "session_id_idx",
-          "columns": [
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "session_shop_idx": {
-          "name": "session_shop_idx",
-          "columns": [
-            {
-              "expression": "shop",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
@@ -189,23 +158,7 @@
           "default": "now()"
         }
       },
-      "indexes": {
-        "shop_domain_idx": {
-          "name": "shop_domain_idx",
-          "columns": [
-            {
-              "expression": "domain",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {

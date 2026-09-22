@@ -5,6 +5,7 @@ import {
 } from '@tanstack/react-start'
 import { isbot } from 'isbot'
 import logger, { serializeError, withLogContext } from '#/utils/logger'
+import { shopifyRequestContextMiddleware } from '#/utils/middleware/auth-middleware'
 
 const csrfMiddleware = createCsrfMiddleware({
   filter: ctx => ctx.handlerType === 'serverFn',
@@ -140,5 +141,9 @@ const requestLoggingMiddleware = createMiddleware().server(
 )
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [requestLoggingMiddleware, csrfMiddleware],
+  requestMiddleware: [
+    requestLoggingMiddleware,
+    csrfMiddleware,
+    shopifyRequestContextMiddleware,
+  ],
 }))

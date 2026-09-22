@@ -17,7 +17,7 @@ import { createSessionTokenBounceResponse } from '#/utils/shopify/session-token-
 export const Route = createFileRoute('/session-token-bounce')({
   server: {
     handlers: {
-      GET: ({ request }) => createSessionTokenBounceResponse(request),
+      GET: () => createSessionTokenBounceResponse(),
     },
   },
 })

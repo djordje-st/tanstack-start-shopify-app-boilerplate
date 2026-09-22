@@ -1,5 +1,7 @@
 import { createMiddleware } from '@tanstack/react-start'
+import { redirect } from '@tanstack/react-router'
 import { getRequest } from '@tanstack/react-start/server'
+import { HttpResponseError, InvalidJwtError } from '@shopify/shopify-api'
 import { addLogContext } from '#/utils/logger'
 import {
   createAdminApiGraphqlClient,
@@ -9,12 +11,15 @@ import { shopifyApp } from '#/utils/shopify/app'
 
 const RETRY_HEADER = 'X-Shopify-Retry-Invalid-Session-Request'
 
-export function getSessionToken(request: Request): string | null {
+export function getSessionToken(
+  request: Request,
+  isDocument: boolean
+): string | null {
   const authorization = request.headers.get('authorization')
 
-  return authorization === null
+  return authorization === null && isDocument
     ? new URL(request.url).searchParams.get('id_token')
-    : (authorization.match(/^Bearer ([^\s]+)$/i)?.[1] ?? null)
+    : (authorization?.match(/^Bearer ([^\s]+)$/i)?.[1] ?? null)
 }
 
 export function getSessionTokenBounceUrl(request: Request): URL {
@@ -33,10 +38,14 @@ export function getSessionTokenBounceUrl(request: Request): URL {
 
 export function rejectInvalidSessionToken(
   request: Request,
+  isDocument: boolean,
   retry = false
 ): never {
-  if (!request.headers.has('authorization')) {
-    throw Response.redirect(getSessionTokenBounceUrl(request), 302)
+  if (isDocument) {
+    throw redirect({
+      href: getSessionTokenBounceUrl(request).href,
+      statusCode: 302,
+    })
   }
 
   throw new Response(null, {
@@ -45,45 +54,92 @@ export function rejectInvalidSessionToken(
   })
 }
 
-export const authMiddleware = createMiddleware({ type: 'function' }).server(
-  async ({ next }) => {
-    const request = getRequest()
-    const documentRequest = !request.headers.has('authorization')
+// Register globally so server functions called during SSR retain the page context.
+export const shopifyRequestContextMiddleware = createMiddleware().server(
+  ({ request, handlerType, next }) =>
+    next({
+      context: {
+        isDocument:
+          handlerType === 'router' &&
+          (request.method === 'GET' || request.method === 'HEAD') &&
+          !new URL(request.url).pathname.startsWith('/api/'),
+      },
+    })
+)
 
-    if (documentRequest) {
+export const authMiddleware = createMiddleware({ type: 'function' })
+  .middleware([shopifyRequestContextMiddleware])
+  .server(async ({ next, context: { isDocument } }) => {
+    const request = getRequest()
+
+    if (isDocument && !request.headers.has('authorization')) {
       const url = new URL(request.url)
 
       if (url.searchParams.get('embedded') !== '1') {
-        throw Response.redirect(
-          await shopifyApp.auth.getEmbeddedAppUrl({ rawRequest: request }),
-          302
-        )
+        throw redirect({
+          href: await shopifyApp.auth.getEmbeddedAppUrl({
+            rawRequest: request,
+          }),
+          statusCode: 302,
+        })
       }
     }
 
-    const encodedSessionToken = getSessionToken(request)
+    const encodedSessionToken = getSessionToken(request, isDocument)
 
     if (!encodedSessionToken) {
-      rejectInvalidSessionToken(request)
+      rejectInvalidSessionToken(request, isDocument, true)
     }
 
-    let decodedSessionToken
+    let shopDomain: string
 
     try {
-      decodedSessionToken =
+      const decodedSessionToken =
         await shopifyApp.session.decodeSessionToken(encodedSessionToken)
+      shopDomain = new URL(decodedSessionToken.dest).hostname
+
+      if (
+        !shopifyApp.utils.sanitizeShop(shopDomain) ||
+        new URL(decodedSessionToken.iss).hostname !== shopDomain
+      ) {
+        throw new InvalidJwtError('Session token shop is invalid')
+      }
     } catch {
-      rejectInvalidSessionToken(request, true)
+      rejectInvalidSessionToken(request, isDocument, true)
     }
 
-    const shopDomain = new URL(decodedSessionToken.dest).hostname
-    const result = await getOfflineSessionWithShop(
-      shopDomain,
-      encodedSessionToken
-    )
+    const requestedShop = new URL(request.url).searchParams.get('shop')
+
+    if (requestedShop !== null) {
+      const sanitizedShop = shopifyApp.utils.sanitizeShop(requestedShop)
+
+      if (
+        !sanitizedShop ||
+        new URL(`https://${sanitizedShop}`).hostname !== shopDomain
+      ) {
+        rejectInvalidSessionToken(request, isDocument)
+      }
+    }
+
+    let result
+
+    try {
+      result = await getOfflineSessionWithShop(shopDomain, encodedSessionToken)
+    } catch (error) {
+      if (
+        error instanceof InvalidJwtError ||
+        (error instanceof HttpResponseError &&
+          error.response.code === 400 &&
+          error.response.body?.error === 'invalid_subject_token')
+      ) {
+        rejectInvalidSessionToken(request, isDocument, true)
+      }
+
+      throw error
+    }
 
     if (!result) {
-      rejectInvalidSessionToken(request)
+      rejectInvalidSessionToken(request, isDocument)
     }
 
     addLogContext({
@@ -94,7 +150,7 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
       shop_account_age_days: Math.floor(
         (Date.now() - result.shop.createdAt.getTime()) / 86_400_000
       ),
-      auth_outcome: 'authenticated',
+      session_status: 'authenticated',
     })
 
     return next({
@@ -103,5 +159,4 @@ export const authMiddleware = createMiddleware({ type: 'function' }).server(
         admin: createAdminApiGraphqlClient(result.session),
       },
     })
-  }
-)
+  })
