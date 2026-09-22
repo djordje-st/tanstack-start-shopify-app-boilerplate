@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0]
+
+### Added
+
+- **Node.js test command** (`package.json`) - Added a `test` script that runs `tests/*.test.mjs` with Node.js's built-in test runner.
+
+### Changed
+
+- **Update dependencies** (`package.json`, `pnpm-lock.yaml`) - Updated Shopify API to 15, React to 19.3, Vite to 8.3, and srvx to 1.0. Refreshed TanStack, LogTape, database, and development dependencies, and pinned Nitro to `3.0.260903-beta`.
+- **Define installation requirements** (`package.json`, `pnpm-workspace.yaml`, `README.md`) - Added the Node.js engine range, documented Node.js 24 and the pinned pnpm version, and allowed build scripts for `@parcel/watcher` and `esbuild`.
+- **Update Polaris script loading** (`src/routes/__root.tsx`) - Switched to `polaris-1.js` and removed the previous preload, preconnect hints, and Polaris fetch priority.
+- **Limit bot filtering to app pages** (`src/start.ts`) - Bot checks now apply only to router GET and HEAD requests outside development. API routes, server functions, and session token recovery bypass these checks. Removed the blanket `node` user-agent exception.
+- **Simplify request logging** (`src/start.ts`) - Log 4xx responses at warning level and record bot rejections with `bot` and `rejection_reason` fields. Derive outcomes from the final status, remove suspicious-path detection, and normalize invalid content lengths to zero.
+- **Use native query parameters for proxy validation** (`src/utils/shopify/proxy.ts`) - Pass `URLSearchParams` directly to the Shopify SDK's HMAC validator and remove the custom query conversion helper.
+
 ## [3.1.0]
 
 ### Added

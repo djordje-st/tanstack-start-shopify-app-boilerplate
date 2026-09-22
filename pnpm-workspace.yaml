@@ -1,2 +1,5 @@
 packages:
   - 'extensions/*'
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true

@@ -11,17 +11,6 @@ import { NotFound } from '#/components/not-found'
 
 export const Route = createRootRouteWithContext()({
   head: () => ({
-    links: [
-      {
-        rel: 'preconnect',
-        href: 'https://cdn.shopify.com',
-      },
-      {
-        rel: 'preload',
-        href: 'https://cdn.shopify.com/shopifycloud/polaris.js',
-        as: 'script',
-      },
-    ],
     meta: [
       {
         charSet: 'utf-8',
@@ -42,13 +31,10 @@ export const Route = createRootRouteWithContext()({
     scripts: [
       {
         src: 'https://cdn.shopify.com/shopifycloud/app-bridge.js',
-        rel: 'preconnect',
         fetchPriority: 'high',
       },
       {
-        src: 'https://cdn.shopify.com/shopifycloud/polaris.js',
-        rel: 'preconnect',
-        fetchPriority: 'high',
+        src: 'https://cdn.shopify.com/shopifycloud/polaris-1.js',
       },
     ],
   }),

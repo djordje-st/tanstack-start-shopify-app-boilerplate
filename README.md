@@ -50,6 +50,8 @@ Deployment context is detected automatically from common `COMMIT_SHA`, Railway, 
 
 ### 1. Clone and Install Dependencies
 
+Use Node.js 24 (see `.nvmrc`) and the pnpm version pinned in `package.json`.
+
 ```bash
 git clone https://github.com/djordje-st/tanstack-start-shopify-app-boilerplate.git
 cd tanstack-start-shopify-app-boilerplate

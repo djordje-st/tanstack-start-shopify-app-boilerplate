@@ -5,36 +5,15 @@ import { addLogContext, serializeError } from '#/utils/logger'
 import { getOfflineSessionWithShop } from '#/utils/shopify/auth'
 import { shopifyApp } from '#/utils/shopify/app'
 
-function searchParamsToQuery(
-  searchParams: URLSearchParams
-): Record<string, string> {
-  const grouped: Record<string, Array<string>> = {}
-
-  searchParams.forEach((value, key) => {
-    if (grouped[key]) {
-      grouped[key].push(value)
-    } else {
-      grouped[key] = [value]
-    }
-  })
-
-  const result: Record<string, string> = {}
-
-  for (const [key, values] of Object.entries(grouped)) {
-    result[key] = values.join(',')
-  }
-
-  return result
-}
-
 export async function verifyShopifyProxyRequest(
   request: Request
 ): Promise<boolean> {
   try {
     const url = new URL(request.url)
-    const query = searchParamsToQuery(url.searchParams)
 
-    return await shopifyApp.utils.validateHmac(query, { signator: 'appProxy' })
+    return await shopifyApp.utils.validateHmac(url.searchParams, {
+      signator: 'appProxy',
+    })
   } catch (error) {
     addLogContext({
       proxy_validation: 'error',
