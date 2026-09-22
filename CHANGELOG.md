@@ -2,11 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.2.0]
-
-### Added
-
-- **Node.js test command** (`package.json`) - Added a `test` script that runs `tests/*.test.mjs` with Node.js's built-in test runner.
+## [3.1.1]
 
 ### Changed
 
