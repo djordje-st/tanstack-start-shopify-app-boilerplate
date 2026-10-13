@@ -1,10 +1,11 @@
 import '@tanstack/react-start/server-only'
 import { RequestedTokenType, Session } from '@shopify/shopify-api'
 import { eq } from 'drizzle-orm'
-import type { SelectSession, SelectShop } from '#/db/schema'
+import type { InsertShop, SelectSession, SelectShop } from '#/db/schema'
 import { db } from '#/db'
 import { sessionsTable, shopsTable } from '#/db/schema'
-import { addLogContext } from '#/utils/logger'
+import { SHOP_DETAILS_QUERY } from '#/graphql/admin/queries'
+import { addLogContext, serializeError } from '#/utils/logger'
 import { shopifyApp } from '#/utils/shopify/app'
 
 const EXPIRY_BUFFER_MS = 5 * 60 * 1000
@@ -13,6 +14,11 @@ type SessionWithShop = {
   session: Session
   shop: SelectShop
 }
+
+type ShopDetails = Pick<
+  InsertShop,
+  'name' | 'email' | 'timezone' | 'currency' | 'plan'
+>
 
 const sessionUpdates = new Map<string, Promise<SessionWithShop | null>>()
 
@@ -56,7 +62,34 @@ function isActiveOfflineSession(session: Session): boolean {
   )
 }
 
-async function saveSession(session: Session): Promise<SessionWithShop> {
+async function fetchShopDetails(session: Session): Promise<ShopDetails | null> {
+  try {
+    const { data } =
+      await createAdminApiGraphqlClient(session).request(SHOP_DETAILS_QUERY)
+
+    if (!data) return null
+
+    const { shop } = data
+
+    return {
+      name: shop.name,
+      email: shop.email,
+      timezone: shop.ianaTimezone,
+      currency: shop.currencyCode,
+      plan: shop.plan.publicDisplayName,
+    }
+  } catch (error) {
+    addLogContext({ shop_details_error: serializeError(error).message })
+
+    return null
+  }
+}
+
+async function saveSession(
+  session: Session,
+  shop: SelectShop | undefined
+): Promise<SessionWithShop> {
+  const details = shop?.name ? null : await fetchShopDetails(session)
   const values = {
     id: session.id,
     shop: session.shop,
@@ -69,16 +102,22 @@ async function saveSession(session: Session): Promise<SessionWithShop> {
     refreshTokenExpires: session.refreshTokenExpires,
   }
 
-  await Promise.all([
-    db
+  await db.transaction(async tx => {
+    const insertShop = tx
       .insert(shopsTable)
-      .values({ domain: session.shop })
-      .onConflictDoNothing(),
-    db
+      .values({ domain: session.shop, ...details })
+
+    await (details
+      ? insertShop.onConflictDoUpdate({
+          target: shopsTable.domain,
+          set: details,
+        })
+      : insertShop.onConflictDoNothing())
+    await tx
       .insert(sessionsTable)
       .values(values)
-      .onConflictDoUpdate({ target: sessionsTable.shop, set: values }),
-  ])
+      .onConflictDoUpdate({ target: sessionsTable.shop, set: values })
+  })
 
   return (await loadSessionWithShop(session.shop))!
 }
@@ -129,14 +168,9 @@ export async function getOfflineSessionWithShop(
           refreshToken: session.refreshToken!,
         })
 
-        return saveSession(refreshed.session)
+        return saveSession(refreshed.session, latest.shop)
       } catch (error) {
-        addLogContext({
-          session_refresh_status: 'failed',
-          session_refresh_error_type:
-            error instanceof Error ? error.name : 'UnknownError',
-          shop_domain: shopDomain,
-        })
+        addLogContext({ session_refresh_error: serializeError(error).message })
       }
     }
 
@@ -151,7 +185,7 @@ export async function getOfflineSessionWithShop(
       expiring: true,
     })
 
-    return saveSession(exchanged.session)
+    return saveSession(exchanged.session, latest?.shop)
   })().finally(() => sessionUpdates.delete(shopDomain))
 
   sessionUpdates.set(shopDomain, update)

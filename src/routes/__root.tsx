@@ -1,4 +1,3 @@
-/// <reference types="vite/client" />
 import {
   HeadContent,
   Link,
@@ -6,48 +5,57 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from '@tanstack/react-router'
-import { DefaultCatchBoundary } from '#/components/default-catch-boundary'
-import { NotFound } from '#/components/not-found'
+import { createServerFn } from '@tanstack/react-start'
+import type { QueryClient } from '@tanstack/react-query'
+import { authMiddleware } from '#/utils/middleware/auth-middleware'
+import { shopifyApp } from '#/utils/shopify/app'
 
-export const Route = createRootRouteWithContext()({
-  head: () => ({
-    meta: [
-      {
-        charSet: 'utf-8',
-      },
-      {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
-      },
-      {
-        name: 'shopify-debug',
-        content: 'web-vitals',
-      },
-      {
-        name: 'shopify-api-key',
-        content: import.meta.env.VITE_SHOPIFY_API_KEY,
-      },
-    ],
-    scripts: [
-      {
-        src: 'https://cdn.shopify.com/shopifycloud/app-bridge.js',
-        fetchPriority: 'high',
-      },
-      {
-        src: 'https://cdn.shopify.com/shopifycloud/polaris-1.js',
-      },
-    ],
-  }),
-  errorComponent: DefaultCatchBoundary,
-  pendingComponent: () => (
-    <s-page>
-      <s-spinner />
-    </s-page>
-  ),
-  notFoundComponent: () => <NotFound />,
-  shellComponent: RootDocument,
-  component: RootComponent,
-})
+const loadApp = createServerFn()
+  .middleware([authMiddleware])
+  .handler(() => ({ apiKey: shopifyApp.config.apiKey }))
+
+export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
+  {
+    // Authenticate once per document load; server functions authenticate their own calls.
+    loader: () => loadApp(),
+    staleTime: Infinity,
+    head: ({ loaderData }) => ({
+      meta: [
+        {
+          charSet: 'utf-8',
+        },
+        {
+          name: 'viewport',
+          content: 'width=device-width, initial-scale=1',
+        },
+        {
+          name: 'shopify-debug',
+          content: 'web-vitals',
+        },
+        {
+          name: 'shopify-api-key',
+          content: loaderData?.apiKey,
+        },
+      ],
+      scripts: [
+        {
+          src: 'https://cdn.shopify.com/shopifycloud/app-bridge.js',
+          fetchPriority: 'high',
+        },
+        {
+          src: 'https://cdn.shopify.com/shopifycloud/polaris-1.js',
+        },
+      ],
+    }),
+    pendingComponent: () => (
+      <s-page>
+        <s-spinner />
+      </s-page>
+    ),
+    shellComponent: RootDocument,
+    component: RootComponent,
+  }
+)
 
 function RootComponent() {
   return (
@@ -65,7 +73,7 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html>
+    <html lang="en">
       <head>
         <HeadContent />
       </head>

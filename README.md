@@ -20,7 +20,7 @@ A modern Shopify app boilerplate built with TanStack Start and TypeScript.
 
 - **[Drizzle ORM](https://orm.drizzle.team)** - Type-safe database operations with migrations
 - **PostgreSQL 18.4** - Primary database
-- **[LogTape](https://logtape.org/)** - Structured, redacted NDJSON logging
+- **[LogTape](https://logtape.org/)** - One readable, redacted log line per request
 
 ### Shopify Integration
 
@@ -35,16 +35,24 @@ A modern Shopify app boilerplate built with TanStack Start and TypeScript.
 - GraphQL Integration - Type-safe Shopify Admin API queries
 - App Proxy Support - Authenticated frontend API calls
 - Webhook Handlers - Direct HMAC-validated endpoint processing
-- Request Logging - One context-rich canonical event per request
+- Request Logging - One summary line per request, with errors and stack traces
 - Theme Extensions - Extensible theme app extensions
 
 ### Logging
 
-Server logs use LogTape and emit one structured `http_request` event when each request completes. The event accumulates request and response details, timing, security signals, Shopify authentication, app proxy and webhook context, shop plan and currency, and deployment metadata.
+The server writes one log line per request. The message summarizes the request, so you can scan the log list without opening entries:
 
-Shopify SDK messages enrich the active request event. Messages outside a request are emitted as standalone `shopify_sdk` events. Common sensitive fields such as secrets, tokens, passwords, and email addresses are recursively removed before output.
+```text
+GET / 200 42ms example.myshopify.com
+POST /api/webhooks/app/uninstalled 401 2ms missing_hmac
+GET loadApp() 200 2016ms Error: Connection terminated due to connection timeout
+```
 
-Deployment context is detected automatically from common `COMMIT_SHA`, Railway, Vercel, `SERVICE_VERSION`, `REGION`, `INSTANCE_ID`, and `HOSTNAME` environment variables.
+The summary contains the method, the path or server function name, the status, the duration, the shop, any rejection reason, and any error. A failed server function still responds with status 200, so its line is logged at the error level. Errors thrown in server routes, page loaders, and server functions include their stack trace.
+
+In production, LogTape's JSON Lines formatter writes each line as JSON with `level` and `message` fields, which platforms such as Railway display in their log list. The other fields can be filtered: `request_id`, `method`, `path`, `status`, `duration_ms`, `shop`, `shop_id`, `server_fns`, `webhook_topic`, `rejection_reason`, `error`, `client_ip`, `country`, and `user_agent`. Empty fields are left out. During development, each request prints one short line, such as `INF GET / 200 29ms example.myshopify.com`, without a timestamp because the Shopify CLI adds one. Error lines also list the request's fields and stack trace.
+
+To add a field to the current request's line, call `addLogContext()` from `#/utils/logger`. Fields with sensitive names, such as secrets, tokens, and passwords, are removed before output. Database errors are logged without their query parameters. Shopify SDK warnings and errors are logged as separate lines that include the `request_id`.
 
 ## Installation
 
@@ -64,7 +72,7 @@ pnpm install
 pnpm docker:up
 ```
 
-This starts a PostgreSQL container for local development.
+This starts a PostgreSQL container on host port `5433` to avoid conflicts with other local projects that use port `5432`.
 
 ### 3. Environment Configuration
 
@@ -72,15 +80,15 @@ Create a `.env` file with the following variables:
 
 ```bash
 # Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/shopify_tanstack_dev
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/shopify_tanstack_dev
 
 # Shopify App Credentials (from Partner Dashboard)
-VITE_SHOPIFY_API_KEY=your_api_key
+SHOPIFY_API_KEY=your_api_key
 SHOPIFY_API_SECRET=your_api_secret
 ```
 
-Set `VITE_SHOPIFY_API_KEY` before building the app. Vite includes this public key
-in the browser bundle. Keep `SHOPIFY_API_SECRET` on the server.
+The server reads both values at runtime, so one build works for any app. `shopify app dev`
+sets them for you during local development.
 
 ### 4. Database Setup
 

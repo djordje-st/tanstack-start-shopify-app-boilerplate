@@ -5,9 +5,14 @@
   "imports": {
     "#/*": "./src/*"
   },
-  "packageManager": "pnpm@11.14.0",
+  "packageManager": "pnpm@12.11.2",
   "engines": {
-    "node": "^22.13.0 || >=24.0.0"
+    "node": ">=24.0.0"
+  },
+  "workspaces": {
+    "packages": [
+      "extensions/*"
+    ]
   },
   "scripts": {
     "dev": "shopify app dev",
@@ -29,48 +34,41 @@
     "lint:fix": "eslint --fix",
     "format": "prettier --write ."
   },
-  "workspaces": {
-    "packages": [
-      "extensions/*"
-    ]
-  },
   "dependencies": {
-    "@logtape/logtape": "^2.3.6",
-    "@logtape/redaction": "^2.3.6",
-    "@shopify/shopify-api": "^15.0.0",
-    "@tanstack/react-query": "^5.103.2",
-    "@tanstack/react-router": "^1.170.38",
-    "@tanstack/react-start": "^1.168.56",
-    "drizzle-orm": "^0.45.3",
-    "drizzle-zod": "^0.8.3",
+    "@logtape/logtape": "^2.4.1",
+    "@logtape/pretty": "^2.4.1",
+    "@logtape/redaction": "^2.4.1",
+    "@shopify/shopify-api": "^15.0.1",
+    "@tanstack/react-query": "^5.104.2",
+    "@tanstack/react-router": "^1.170.44",
+    "@tanstack/react-router-ssr-query": "^1.167.3",
+    "@tanstack/react-start": "^1.169.1",
+    "drizzle-orm": "^0.45.4",
     "isbot": "^5.2.2",
     "nitro": "3.0.260903-beta",
-    "pg": "^8.23.0",
+    "pg": "^8.23.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "srvx": "^1.0.5",
-    "vite": "^8.3.0",
-    "zod": "^4.6.5"
+    "vite": "^8.3.4",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@graphql-codegen/cli": "^7.4.2",
+    "@graphql-codegen/cli": "^7.4.6",
     "@rolldown/plugin-babel": "^0.2.3",
-    "@shopify/admin-api-client": "^2.0.0",
+    "@shopify/admin-api-client": "^2.0.1",
     "@shopify/api-codegen-preset": "^3.0.0",
     "@shopify/app-bridge-types": "^0.7.2",
-    "@shopify/polaris-types": "^1.0.7",
+    "@shopify/polaris-types": "^1.1.0",
     "@tanstack/eslint-config": "^0.4.0",
-    "@tanstack/react-router-ssr-query": "^1.167.3",
     "@types/node": "^25.5.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.1.1",
+    "@vitejs/plugin-react": "^6.1.2",
     "babel-plugin-react-compiler": "^1.0.0",
     "drizzle-kit": "^0.31.11",
-    "eslint": "^10.11.0",
-    "prettier": "^3.9.8",
-    "tsx": "^4.23.15",
+    "eslint": "^10.12.0",
+    "prettier": "^3.9.10",
     "typescript": "^5.9.3"
   }
 }

@@ -1,14 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { createServerFn } from '@tanstack/react-start'
-import { authMiddleware } from '#/utils/middleware/auth-middleware'
-
-const authenticateAdminRequest = createServerFn({})
-  .middleware([authMiddleware])
-  .handler(() => null)
 
 export const Route = createFileRoute('/')({
   component: HomeComponent,
-  loader: () => authenticateAdminRequest(),
 })
 
 function HomeComponent() {

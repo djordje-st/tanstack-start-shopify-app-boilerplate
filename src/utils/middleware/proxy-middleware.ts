@@ -1,21 +1,30 @@
 import { createMiddleware } from '@tanstack/react-start'
-import { addLogContext, serializeError } from '#/utils/logger'
-import { createAdminApiGraphqlClient } from '#/utils/shopify/auth'
+import { addLogContext } from '#/utils/logger'
+import { shopifyApp } from '#/utils/shopify/app'
 import {
-  fetchShopAndSession,
-  verifyShopifyProxyRequest,
-} from '#/utils/shopify/proxy'
+  createAdminApiGraphqlClient,
+  getOfflineSessionWithShop,
+} from '#/utils/shopify/auth'
+
+async function isValidProxyRequest(
+  searchParams: URLSearchParams
+): Promise<boolean> {
+  try {
+    return await shopifyApp.utils.validateHmac(searchParams, {
+      signator: 'appProxy',
+    })
+  } catch {
+    return false
+  }
+}
 
 export const proxyMiddleware = createMiddleware({ type: 'request' }).server(
   async ({ request, next }) => {
-    const url = new URL(request.url)
-    const shopDomain = url.searchParams.get('shop')
-    addLogContext({ shop_domain: shopDomain, request_type: 'app_proxy' })
+    const { searchParams } = new URL(request.url)
+    const shopDomain = searchParams.get('shop')
 
-    if (!(await verifyShopifyProxyRequest(request))) {
-      addLogContext({
-        proxy_validation: 'invalid',
-      })
+    if (!(await isValidProxyRequest(searchParams))) {
+      addLogContext({ rejection_reason: 'invalid_proxy_signature' })
 
       throw Response.json(
         { error: 'Invalid Shopify proxy request' },
@@ -23,52 +32,31 @@ export const proxyMiddleware = createMiddleware({ type: 'request' }).server(
       )
     }
 
-    if (!shopDomain) {
-      throw Response.json({ error: 'Missing shop parameter' }, { status: 400 })
+    const result = shopDomain
+      ? await getOfflineSessionWithShop(shopDomain)
+      : null
+
+    if (!result) {
+      addLogContext({
+        shop: shopDomain ?? undefined,
+        rejection_reason: 'no_session',
+      })
+      throw Response.json(
+        { error: `No valid session for shop: ${shopDomain}` },
+        { status: 401 }
+      )
     }
 
-    try {
-      const { shop, session } = await fetchShopAndSession(shopDomain)
+    const { session, shop } = result
 
-      if (!shop) {
-        throw Response.json(
-          { error: `Shop not found: ${shopDomain}` },
-          { status: 404 }
-        )
-      }
+    addLogContext({ shop: shop.domain, shop_id: shop.id })
 
-      if (!session?.accessToken) {
-        throw Response.json(
-          { error: `No valid session for shop: ${shopDomain}` },
-          { status: 401 }
-        )
-      }
-
-      addLogContext({
-        proxy_validation: 'valid',
-        shop_id: shop.id,
-        shop_domain: shop.domain,
-        shop_plan: shop.plan,
-        shop_currency: shop.currency,
-      })
-
-      return next({
-        context: {
-          session,
-          shop,
-          admin: createAdminApiGraphqlClient(session),
-        },
-      })
-    } catch (error) {
-      if (error instanceof Response) {
-        throw error
-      }
-
-      addLogContext({
-        proxy_error: serializeError(error),
-      })
-
-      throw Response.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    return next({
+      context: {
+        session,
+        shop,
+        admin: createAdminApiGraphqlClient(session),
+      },
+    })
   }
 )

@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0]
+
+### Changed
+
+- **Upgrade to TanStack Start 1.169** (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`) - Moved to the first stable TanStack Start release and refreshed TanStack Router and Query. Responses thrown from server function middleware now reject the client call with that `Response`, as described in the [release candidate migration guide](https://tanstack.com/start/latest/docs/framework/react/migrate-from-release-candidate).
+- **Upgrade to pnpm 12** (`package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `.github/ISSUE_TEMPLATE/bug_report.yml`) - Pinned pnpm 12.11.2, which records its own binary checksums in the lockfile. Fresh installs no longer fail on the unapproved `unrs-resolver` build script, which only checks for a native binary that pnpm already installs.
+- **Read the API key at runtime** (`src/routes/__root.tsx`, `src/utils/shopify/app.ts`, `.env.example`, `README.md`) - Renamed `VITE_SHOPIFY_API_KEY` to `SHOPIFY_API_KEY`, which `shopify app dev` already sets. The root loader now serves the key, so one build works for any app.
+- **Authenticate once per document** (`src/routes/__root.tsx`, `src/routes/index.tsx`) - Moved the authentication check from the index route to the root loader and cached it for the session. Client navigations no longer call the server, and the root route context now types `queryClient`.
+- **Simplify error handling** (`src/utils/middleware/`, `src/routes/api/proxy-endpoint.ts`) - Removed the catch-all handlers from the proxy and webhook middleware and the proxy route. Unexpected errors now return a generic 500 response from the request logging middleware, which records the error. A proxy request for a shop without a valid session now returns 401 in every case.
+- **Make logs readable** (`src/utils/logger.ts`, `src/utils/middleware/request-logging-middleware.ts`, `README.md`) - Each request line's message now summarizes the request, for example `GET / 200 42ms example.myshopify.com`, so log lists such as Railway's are readable without opening entries. Removed constant, empty, and derived fields, and dropped shop plan, currency, and account age. Lines average about 395 bytes instead of 935. Production uses LogTape's JSON Lines formatter, and development prints one short line per request with LogTape's ANSI color formatter. Error lines use `@logtape/pretty` to also show the request's fields and stack trace.
+- **Log every failure with its cause** (`src/utils/middleware/request-logging-middleware.ts`, `src/start.ts`) - Page loader and server function failures now include the error and the server function name. Previously, a failed page logged a 500 with no error, and a failed server function logged as a successful 200. Server route errors no longer print a second, multi-line stack trace.
+- **Keep secrets out of database errors** (`src/utils/logger.ts`) - Database errors log the underlying cause and query without the query parameters, which can contain access tokens.
+- **Reduce Shopify SDK logging** (`src/utils/shopify/app.ts`) - Log only SDK warnings and errors, each as its own line with the `request_id`.
+- **Move bot filtering** (`src/utils/middleware/bot-middleware.ts`, `src/start.ts`) - Moved bot rejection out of the logging middleware into its own middleware.
+- **Save shop details** (`src/utils/shopify/auth.ts`, `src/graphql/admin/queries.ts`, `src/db/schema/shops.ts`) - When a shop installs or reinstalls the app, or has no saved details yet, the app fetches its name, owner email, IANA time zone, currency, and plan from the Admin API and saves them on the shop row. The app proxy example now uses the same query and returns only the shop name and domain. Token refreshes skip the request once details exist. A failed request does not block authentication and is retried on the next session save.
+- **Save sessions in a transaction** (`src/utils/shopify/auth.ts`) - Shop and session rows are written together.
+
+### Fixed
+
+- **Restore clickjacking protection** (`src/utils/middleware/auth-middleware.ts`) - App pages send `Content-Security-Policy: frame-ancestors` for the requesting shop and Shopify admin, or `'none'` when the shop is missing or invalid.
+- **Handle a missing `host` parameter** (`src/utils/middleware/auth-middleware.ts`) - Opening the app outside Shopify admin redirects into the admin using `host` or `shop`, and returns 400 when neither is present. Previously, a missing `host` returned a 500 error page.
+
+### Removed
+
+- **Unused code and configuration** (`package.json`, `tsconfig.json`, `vite.config.ts`, `.gitignore`, `src/utils/shopify/proxy.ts`) - Removed `drizzle-zod`, `tsx`, the `@/*` path alias, unused Vite options, stale ignore rules, and the proxy helpers. Moved `@tanstack/react-router-ssr-query` to runtime dependencies.
+
 ## [3.1.1]
 
 ### Changed

@@ -1,8 +1,13 @@
-export const SHOP_QUERY = `#graphql
-  query GetShop {
+export const SHOP_DETAILS_QUERY = `#graphql
+  query ShopDetails {
     shop {
       name
-      myshopifyDomain
+      email
+      ianaTimezone
+      currencyCode
+      plan {
+        publicDisplayName
+      }
     }
   }
 `

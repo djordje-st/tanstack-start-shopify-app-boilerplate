@@ -1,6 +1,6 @@
 name: Bug report
 description: Report a reproducible problem
-title: "[Bug]: "
+title: '[Bug]: '
 labels:
   - bug
 body:
@@ -53,8 +53,8 @@ body:
       description: Include your OS, Node.js version, package manager version, and relevant dependency versions.
       placeholder: |
         OS: Ubuntu 24.04
-        Node.js: 22.x
-        pnpm: 10.x
+        Node.js: 24.x
+        pnpm: 12.x
     validations:
       required: true
 

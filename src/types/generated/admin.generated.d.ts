@@ -3,13 +3,16 @@
 /* eslint-disable */
 import type * as AdminTypes from './admin.types.js';
 
-export type GetShopQueryVariables = AdminTypes.Exact<{ [key: string]: never; }>;
+export type ShopDetailsQueryVariables = AdminTypes.Exact<{ [key: string]: never; }>;
 
 
-export type GetShopQuery = { shop: Pick<AdminTypes.Shop, 'name' | 'myshopifyDomain'> };
+export type ShopDetailsQuery = { shop: (
+    Pick<AdminTypes.Shop, 'name' | 'email' | 'ianaTimezone' | 'currencyCode'>
+    & { plan: Pick<AdminTypes.ShopPlan, 'publicDisplayName'> }
+  ) };
 
 interface GeneratedQueryTypes {
-  "#graphql\n  query GetShop {\n    shop {\n      name\n      myshopifyDomain\n    }\n  }\n": {return: GetShopQuery, variables: GetShopQueryVariables},
+  "#graphql\n  query ShopDetails {\n    shop {\n      name\n      email\n      ianaTimezone\n      currencyCode\n      plan {\n        publicDisplayName\n      }\n    }\n  }\n": {return: ShopDetailsQuery, variables: ShopDetailsQueryVariables},
 }
 
 interface GeneratedMutationTypes {
